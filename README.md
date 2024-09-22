@@ -78,7 +78,7 @@ This method makes use of the `requirements.txt` file; you can disregard the `env
 Ensure you have installed the [virtualenv tool](https://virtualenv.pypa.io/en/latest/installation.html) on your system.
 Once installed, create a new virtual environment:
 
-    vitualenv ~/ift6758-venv
+    virtualenv ~/ift6758-venv
     source ~/ift6758-venv/bin/activate
 
 Install the packages from a requirements.txt file:
