@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 import requests
 import json
 
@@ -72,6 +73,15 @@ class NHLDataDownloader:
             game_id = self.generate_playoff_game_id(season, round_num, matchup, game_num)
             self.get_game_data(game_id)
 
+    def extract_shots_and_goals_for_game(self, game_id):
+        """Extract shot and goal data for a specific game"""
+        game_data = self.get_game_data(game_id)
+        if game_data:
+            return extract_shots_and_goals(game_data)
+        else:
+            print(f"Failed to extract shot and goal data for game {game_id}.")
+            return None
+
     def download_playoffs(self, season):
         """
         Download data for the entire playoffs, dynamically adjusting matchups for each round:
@@ -97,6 +107,95 @@ class NHLDataDownloader:
         for season in range(start_season, end_season+1):
             self.download_regular_season(season)
             self.download_playoffs(season)
+
+#Helper function to parse the situation code
+def parse_situation_code(situation_code):
+    """
+    Parse the situation code and return a dictionary with the parsed values.
+    1st: away goalie (1=in net, 0=pulled)
+    2nd: number of away skaters
+    3rd: number of home skaters
+    4th: home goalie (1=in net, 0=pulled)
+    """
+    if len(situation_code) == 4:
+        away_goalie_in_net = situation_code[0] == '1'
+        away_skaters = int(situation_code[1])
+        home_skaters = int(situation_code[2])
+        home_goalie_in_net = situation_code[3] == '1'
+        return {
+            'away_goalie_in_net': away_goalie_in_net,
+            'away_skaters': away_skaters,
+            'home_skaters': home_skaters,
+            'home_goalie_in_net': home_goalie_in_net
+        }
+
+#Helper function to extract shots and goals
+def extract_shots_and_goals(game_data):
+    """Extract 'shots' and 'goals' from the game data and return them as a pandas DataFrame."""
+    events = game_data.get("plays",[])
+    extracted_events = []
+
+    # Get home and away team information
+    home_team_id = game_data.get("homeTeam", {}).get("id", None)
+    away_team_id = game_data.get("awayTeam", {}).get("id", None)
+    home_team_name = game_data.get("homeTeam", {}).get("name", {}).get("default", "Unknown")
+    away_team_name = game_data.get("awayTeam", {}).get("name", {}).get("default", "Unknown")
+
+    for event in events:
+        details = event.get("details",{})
+        event_type =event.get("typeDescKey","")
+        situation_code = event.get("situationCode",None)
+
+        if event_type in ["shot-on-goal","hit"]:
+            parsed_situation = parse_situation_code(situation_code) if situation_code else {}
+            # Determine if the team is home or away
+            team_id = details.get("eventOwnerTeamId", None)
+            if team_id == home_team_id:
+                team_type = "home"
+                team_name = home_team_name
+            elif team_id == away_team_id:
+                team_type = "away"
+                team_name = away_team_name
+            else:
+                team_type = "unknown"
+                team_name = "unknown"
+
+            event_info ={
+                "game_id":game_data.get("id",None),
+                "game_date":game_data.get("gameDate",None),
+                "period": event.get("periodDescriptor",{}).get("number",None),
+                "time_in_period": event.get("timeInPeriod",None),
+                "event_type": event_type,
+                "shot-on-goal": event_type == "shot-on-goal",
+                "x_coord": details.get("xCoord", None),
+                "y_coord": details.get("yCoord", None),
+                "team_id": details.get("eventOwnerTeamId",None),
+                "team_name": team_name,
+                "team_type": team_type,
+                "empty_net": not parsed_situation.get('home_goalie_in_net', True) or not parsed_situation.get(
+                    'away_goalie_in_net', True),
+                "power_play": parsed_situation.get('away_skaters', 0) > parsed_situation.get('home_skaters',0)
+                              or parsed_situation.get('home_skaters', 0) > parsed_situation.get('away_skaters', 0)
+            }
+            # Add player-specific information based on the event type
+            if event_type == "shot-on-goal":
+                # Add shooter and goalie for shots on goal
+                event_info["shooter_id"] = details.get("shootingPlayerId", None)
+                event_info["goalie_id"] = details.get("goalieInNetId", None)
+                event_info["shot_on_goal"] = True
+            elif event_type == "hit":
+                # Add hitting and hittee player IDs for hits
+                event_info["hitting_player_id"] = details.get("hittingPlayerId", None)
+                event_info["hittee_player_id"] = details.get("hitteePlayerId", None)
+                event_info["shot_on_goal"] = False
+
+            extracted_events.append(event_info)
+
+    df = pd.DataFrame(extracted_events)
+    df.dropna(subset=["x_coord", "y_coord", "shooter_id"], inplace=True)
+    return df
+
+
 
 
 
