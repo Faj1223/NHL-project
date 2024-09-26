@@ -63,15 +63,23 @@ class NHLDataDownloader:
 
     def download_regular_season(self, season, total_games=1353):
         """Download all regular season games for a given season"""
+        all_games = {}
         for game_num in range(1, total_games+1):
             game_id = NHLDataDownloader.generate_regular_season_game_id(season, game_num)
-            self.get_game_data(game_id)
+            game_data = self.get_game_data(game_id)
+            if game_data:
+                all_games[game_id] = game_data
+        return all_games
 
     def download_playoff_series(self, season, round_num, matchup, total_games=7):
         """Download all games in a playoff series"""
+        series_data = {}
         for game_num in range(1, total_games+1):
             game_id = self.generate_playoff_game_id(season, round_num, matchup, game_num)
-            self.get_game_data(game_id)
+            game_data = self.get_game_data(game_id)
+            if game_data:
+                series_data[game_id] = game_data
+        return series_data
 
     def extract_shots_and_goals_for_game(self, game_id):
         """Extract shot and goal data for a specific game"""
@@ -96,11 +104,14 @@ class NHLDataDownloader:
             3: 2,  # Round 3 has 2 matchups
             4: 1  # Round 4 (Stanley Cup Final) has 1 matchup
         }
-
+        all_games = {}
         for round_num, matchups in rounds_matchups.items():
             for matchup in range(1, matchups + 1):
                 # Each matchup can have up to 7 games in a best-of-seven series
-                self.download_playoff_series(season, round_num, matchup)
+                game_data = self.download_playoff_series(season, round_num, matchup)
+                if game_data:
+                    all_games.update(game_data)
+        return all_games
 
     def download_all_seasons_play_by_play(self, start_season, end_season):
         """Download all regular season games for a range of seasons"""
@@ -131,7 +142,7 @@ def parse_situation_code(situation_code):
 
 #Helper function to extract shots and goals
 def extract_shots_and_goals(game_data):
-    """Extract 'shots' and 'goals' from the game data and return them as a pandas DataFrame."""
+    """Extract 'shots-on-goal' and 'hit' from the game data and return them as a pandas DataFrame."""
     events = game_data.get("plays",[])
     extracted_events = []
 
