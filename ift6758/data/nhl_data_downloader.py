@@ -140,6 +140,27 @@ def parse_situation_code(situation_code):
             'home_goalie_in_net': home_goalie_in_net
         }
 
+#Helper function to get the strength status
+def get_strength_status(parsed_situation):
+    """
+    Determine whether the goal or shot occurred during equal strength, power play, or penalty kill.
+
+    Arguments:
+    - parsed_situation: Dictionary containing details of skaters and goalie presence.
+
+    Returns:
+    - A string indicating 'Equal Strength', 'Power Play', or 'Penalty Kill'
+    """
+    away_skaters = parsed_situation.get('away_skaters', 0)
+    home_skaters = parsed_situation.get('home_skaters', 0)
+
+    if home_skaters == away_skaters:
+        return "Equal Strength"
+    elif home_skaters > away_skaters:
+        return "Power Play"  # Home team has more skaters
+    else:
+        return "Penalty Kill"  # Home team has fewer skaters
+
 #Helper function to extract shots and goals
 def extract_shots_and_goals(game_data):
     """Extract 'shots-on-goal' and 'hit' from the game data and return them as a pandas DataFrame."""
@@ -159,6 +180,7 @@ def extract_shots_and_goals(game_data):
 
         if event_type in ["shot-on-goal","hit"]:
             parsed_situation = parse_situation_code(situation_code) if situation_code else {}
+            strength_status = get_strength_status(parsed_situation)
             # Determine if the team is home or away
             team_id = details.get("eventOwnerTeamId", None)
             if team_id == home_team_id:
@@ -170,6 +192,10 @@ def extract_shots_and_goals(game_data):
             else:
                 team_type = "unknown"
                 team_name = "unknown"
+            # Default shot type handling
+            shot_type = details.get("shotType", "Unknown")
+            if shot_type is None:
+                shot_type = "Unknown"  # Set a default value in case it's missing
 
             event_info ={
                 "game_id":game_data.get("id",None),
@@ -178,6 +204,7 @@ def extract_shots_and_goals(game_data):
                 "time_in_period": event.get("timeInPeriod",None),
                 "event_type": event_type,
                 "shot-on-goal": event_type == "shot-on-goal",
+                "shot_type": shot_type,
                 "x_coord": details.get("xCoord", None),
                 "y_coord": details.get("yCoord", None),
                 "team_id": details.get("eventOwnerTeamId",None),
@@ -185,8 +212,7 @@ def extract_shots_and_goals(game_data):
                 "team_type": team_type,
                 "empty_net": not parsed_situation.get('home_goalie_in_net', True) or not parsed_situation.get(
                     'away_goalie_in_net', True),
-                "power_play": parsed_situation.get('away_skaters', 0) > parsed_situation.get('home_skaters',0)
-                              or parsed_situation.get('home_skaters', 0) > parsed_situation.get('away_skaters', 0)
+                "strength_status": strength_status
             }
             # Add player-specific information based on the event type
             if event_type == "shot-on-goal":
@@ -203,7 +229,7 @@ def extract_shots_and_goals(game_data):
             extracted_events.append(event_info)
 
     df = pd.DataFrame(extracted_events)
-    df.dropna(subset=["x_coord", "y_coord", "shooter_id"], inplace=True)
+
     return df
 
 
