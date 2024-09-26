@@ -6,6 +6,8 @@ ift6758.egg-info/SOURCES.txt
 ift6758.egg-info/dependency_links.txt
 ift6758.egg-info/top_level.txt
 ift6758/data/__init__.py
+ift6758/data/display.py
+ift6758/data/nhl_data_downloader.py
 ift6758/data/question_1.py
 ift6758/features/__init__.py
 ift6758/visualizations/__init__.py
