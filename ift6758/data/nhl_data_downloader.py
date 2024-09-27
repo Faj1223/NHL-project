@@ -200,11 +200,11 @@ def extract_shots_and_goals(game_data):
             parsed_situation = parse_situation_code(situation_code) if situation_code else {}
             strength_status = get_strength_status(parsed_situation)
             # Determine if the team is home or away
-            team_id = details.get("eventOwnerTeamId", None)
-            if team_id == home_team_id:
+            event_owner_team_id = details.get("eventOwnerTeamId", None)
+            if event_owner_team_id == home_team_id:
                 team_type = "home"
                 team_name = home_team_name
-            elif team_id == away_team_id:
+            elif event_owner_team_id == away_team_id:
                 team_type = "away"
                 team_name = away_team_name
             else:
@@ -223,16 +223,18 @@ def extract_shots_and_goals(game_data):
                 "game_date":game_data.get("gameDate",None),
                 "period": event.get("periodDescriptor",{}).get("number",None),
                 "time_in_period": event.get("timeInPeriod",None),
+                "event_id": event.get("eventId",None),
                 "event_type": event_type,
                 "shot-on-goal": event_type == "shot-on-goal",
                 "shot_type": shot_type,
                 "x_coord": details.get("xCoord", None),
                 "y_coord": details.get("yCoord", None),
-                "team_id": details.get("eventOwnerTeamId",None),
+                "event_owner_team_id": details.get("eventOwnerTeamId",None),
                 "team_name": team_name,
                 "team_type": team_type,
                 "empty_net": empty_net_status,
-                "strength_status": strength_status
+                "strength_status": strength_status,
+                "situation_code": situation_code,
             }
             # Add player-specific information based on the event type
             if event_type == "shot-on-goal":
