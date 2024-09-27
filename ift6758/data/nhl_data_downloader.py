@@ -161,6 +161,24 @@ def get_strength_status(parsed_situation):
     else:
         return "Penalty Kill"  # Home team has fewer skaters
 
+#Helper function to determine if the net is empty
+def is_net_empty_goal(team_type, parsed_situation):
+    """
+    Determine if the net is empty based on the team type (home or away).
+
+    Args:
+    - team_type: A string indicating whether the team is 'home' or 'away'
+    - parsed_situation: A dictionary containing parsed situation details (goalie in net, skaters, etc.)
+
+    Returns:
+    - True if the net is empty for the given team, False otherwise.
+    """
+    if team_type == "home":
+        return not parsed_situation.get('away_goalie_in_net', True)  # If away goalie is not in net
+    elif team_type == "away":
+        return not parsed_situation.get('home_goalie_in_net', True)  # If home goalie is not in net
+    return False  # Default: net is not empty if team type is unknown
+
 #Helper function to extract shots and goals
 def extract_shots_and_goals(game_data):
     """Extract 'shots-on-goal' and 'hit' from the game data and return them as a pandas DataFrame."""
@@ -192,6 +210,9 @@ def extract_shots_and_goals(game_data):
             else:
                 team_type = "unknown"
                 team_name = "unknown"
+
+            # Determine if the net is empty for the current team
+            empty_net_status = is_net_empty_goal(team_type, parsed_situation)
             # Default shot type handling
             shot_type = details.get("shotType", "Unknown")
             if shot_type is None:
@@ -210,8 +231,7 @@ def extract_shots_and_goals(game_data):
                 "team_id": details.get("eventOwnerTeamId",None),
                 "team_name": team_name,
                 "team_type": team_type,
-                "empty_net": not parsed_situation.get('home_goalie_in_net', True) or not parsed_situation.get(
-                    'away_goalie_in_net', True),
+                "empty_net": empty_net_status,
                 "strength_status": strength_status
             }
             # Add player-specific information based on the event type
