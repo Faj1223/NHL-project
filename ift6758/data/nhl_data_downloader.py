@@ -196,7 +196,7 @@ def extract_shots_and_goals(game_data):
         event_type =event.get("typeDescKey","")
         situation_code = event.get("situationCode",None)
 
-        if event_type in ["shot-on-goal","hit"]:
+        if event_type in ["shot-on-goal","goal"]:
             parsed_situation = parse_situation_code(situation_code) if situation_code else {}
             strength_status = get_strength_status(parsed_situation)
             # Determine if the team is home or away
@@ -225,7 +225,7 @@ def extract_shots_and_goals(game_data):
                 "time_in_period": event.get("timeInPeriod",None),
                 "event_id": event.get("eventId",None),
                 "event_type": event_type,
-                "shot-on-goal": event_type == "shot-on-goal",
+                "is_goal": event_type == "goal",
                 "shot_type": shot_type,
                 "x_coord": details.get("xCoord", None),
                 "y_coord": details.get("yCoord", None),
@@ -235,19 +235,9 @@ def extract_shots_and_goals(game_data):
                 "empty_net": empty_net_status,
                 "strength_status": strength_status,
                 "situation_code": situation_code,
+                "shooter_id": details.get("shootingPlayerId", None),
+                "goalie_id": details.get("goalieInNetId", None),
             }
-            # Add player-specific information based on the event type
-            if event_type == "shot-on-goal":
-                # Add shooter and goalie for shots on goal
-                event_info["shooter_id"] = details.get("shootingPlayerId", None)
-                event_info["goalie_id"] = details.get("goalieInNetId", None)
-                event_info["shot_on_goal"] = True
-            elif event_type == "hit":
-                # Add hitting and hittee player IDs for hits
-                event_info["hitting_player_id"] = details.get("hittingPlayerId", None)
-                event_info["hittee_player_id"] = details.get("hitteePlayerId", None)
-                event_info["shot_on_goal"] = False
-
             extracted_events.append(event_info)
 
     df = pd.DataFrame(extracted_events)
