@@ -4,10 +4,10 @@ import requests
 import json
 
 class NHLDataDownloader:
-    def __init__(self, base_url="https://api-web.nhle.com/v1/gamecenter/", data_dir="play_by_play", suffix_url="/play-by-play"):
+    def __init__(self, base_url="https://api-web.nhle.com/v1/gamecenter/", data_dir="../data/play_by_play", suffix_url="/play-by-play"):
         self.base_url = base_url
         # Ensure the play_by_play folder is always under ift6758/data
-        self.data_dir = os.path.join(os.path.dirname(__file__), 'play_by_play')
+        self.data_dir = os.path.join(os.path.dirname(__file__), data_dir)
         self.suffix_url = suffix_url
         os.makedirs(data_dir, exist_ok=True)
 
