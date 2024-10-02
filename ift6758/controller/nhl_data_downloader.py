@@ -199,6 +199,14 @@ def extract_shots_and_goals(game_data):
         if event_type in ["shot-on-goal","goal"]:
             parsed_situation = parse_situation_code(situation_code) if situation_code else {}
             strength_status = get_strength_status(parsed_situation)
+
+            # Get the number of skaters for both teams
+            home_skaters = parsed_situation.get('home_skaters', 0)
+            away_skaters = parsed_situation.get('away_skaters', 0)
+
+            # Add the real strength info as 'XvY' (e.g., 5v4)
+            real_strength = f"{home_skaters}v{away_skaters}"
+
             # Determine if the team is home or away
             event_owner_team_id = details.get("eventOwnerTeamId", None)
             if event_owner_team_id == home_team_id:
@@ -215,8 +223,6 @@ def extract_shots_and_goals(game_data):
             empty_net_status = is_net_empty_goal(team_type, parsed_situation)
             # Default shot type handling
             shot_type = details.get("shotType", "Unknown")
-            if shot_type is None:
-                shot_type = "Unknown"  # Set a default value in case it's missing
 
             event_info ={
                 "game_id":game_data.get("id",None),
@@ -234,9 +240,10 @@ def extract_shots_and_goals(game_data):
                 "team_type": team_type,
                 "empty_net": empty_net_status,
                 "strength_status": strength_status,
+                "real_strength_home_vs_away": real_strength,
                 "situation_code": situation_code,
-                "shooter_id": details.get("shootingPlayerId", None),
-                "goalie_id": details.get("goalieInNetId", None),
+                "shooter_id": details.get("shootingPlayerId", "Unknown"),
+                "goalie_id": details.get("goalieInNetId", "Unknown"),
             }
             extracted_events.append(event_info)
 
