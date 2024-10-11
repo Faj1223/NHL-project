@@ -331,7 +331,28 @@ def get_game_dataframe(game_id):
         else:
             print(f"Failed to download data for game {game_id}.")
             return None
-    
-    
-    
-    
+
+
+
+def clean_games_data(season: int):
+    path_to_season_data = f"{NHLDataDownloader.DATA_DIR}/{season}/"
+    json_files_names = [json_file_name for json_file_name in os.listdir(path_to_season_data) if json_file_name.endswith('.json')]
+
+    for json_file_name in json_files_names:
+        game_id = json_file_name.replace('.json', '')
+        get_game_dataframe(game_id)
+
+
+
+def get_dataframe_from_concatenated_csv_files(season: int) -> pd.DataFrame:
+    path_to_cleaned_season_data = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/"
+    csv_files_names = [csv_file_name for csv_file_name in os.listdir(path_to_cleaned_season_data) if csv_file_name.endswith('.csv')]
+    all_df = []
+
+    for csv_file_name in csv_files_names:
+        csv_file_path = os.path.join(path_to_cleaned_season_data, csv_file_name)
+        df = pd.read_csv(csv_file_path)
+        all_df.append(df)
+    combined_df = pd.concat(all_df, ignore_index=True)
+
+    return combined_df
