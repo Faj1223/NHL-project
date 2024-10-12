@@ -84,11 +84,11 @@ class RinkEventDebugTool:
                 ax.legend()
             ax.set_title(title)
             if period_number == 1 or period_number == 3:
-                ax.text(-90, 45, away_abbrev, fontsize=12, ha='center', va='center')  # Away team on the left
-                ax.text(90, 45, home_abbrev, fontsize=12, ha='center', va='center')  # Home team on the right
-            elif period_number == 2:
-                ax.text(90, 45, away_abbrev, fontsize=12, ha='center', va='center') # Away team on the right
-                ax.text(-90, 45, home_abbrev, fontsize=12, ha='center', va='center') #  Home team on the left
+                ax.text(90, 45, away_abbrev, fontsize=12, ha='center', va='center')  # Away team on the right to defend
+                ax.text(-90, 45, home_abbrev, fontsize=12, ha='center', va='center')  # Home team on the left to defend
+            elif period_number == 2 or period_number == 4:# Overtime period should also change the side of the teams
+                ax.text(-90, 45, away_abbrev, fontsize=12, ha='center', va='center') # Away team on the right to defend
+                ax.text(90, 45, home_abbrev, fontsize=12, ha='center', va='center') #  Home team on the left to defend
             plt.show()
 
 
