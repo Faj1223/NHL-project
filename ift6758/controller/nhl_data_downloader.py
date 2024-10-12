@@ -121,7 +121,7 @@ class NHLDataDownloader:
         """Extract shot and goal data for a specific game"""
         game_data = self.save_and_get_game_data(game_id)
         if game_data:
-            return extract_shots_and_goals(game_data)
+            return self.extract_shots_and_goals(game_data)
         else:
             print(f"Failed to extract shot and goal data for game {game_id}.")
             return None

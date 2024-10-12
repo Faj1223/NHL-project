@@ -83,8 +83,12 @@ class RinkEventDebugTool:
                 ax.scatter(x, y, color='blue', label="Event location")
                 ax.legend()
             ax.set_title(title)
-            ax.text(-90, 45, away_abbrev, fontsize=12, ha='center', va='center')  # Away team on the left
-            ax.text(90, 45, home_abbrev, fontsize=12, ha='center', va='center')  # Home team on the right
+            if period_number == 1 or period_number == 3:
+                ax.text(-90, 45, away_abbrev, fontsize=12, ha='center', va='center')  # Away team on the left
+                ax.text(90, 45, home_abbrev, fontsize=12, ha='center', va='center')  # Home team on the right
+            elif period_number == 2:
+                ax.text(90, 45, away_abbrev, fontsize=12, ha='center', va='center') # Away team on the right
+                ax.text(-90, 45, home_abbrev, fontsize=12, ha='center', va='center') #  Home team on the left
             plt.show()
 
 
