@@ -287,6 +287,7 @@ class NHLDataDownloader:
                     "x_coord": details.get("xCoord", None),
                     "y_coord": details.get("yCoord", None),
                     "event_owner_team_id": details.get("eventOwnerTeamId",None),
+                    "homeTeamDefendingSide": event.get("homeTeamDefendingSide",None),
                     "team_name": team_name,
                     "team_type": team_type,
                     "empty_net": empty_net_status,
