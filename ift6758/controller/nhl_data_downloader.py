@@ -332,6 +332,18 @@ def get_game_dataframe(game_id):
             print(f"Failed to download data for game {game_id}.")
             return None
     
+def get_dataframe_from_concatenated_csv_files(season: int) -> pd.DataFrame:
+    season_games_cleaned_data_path_name = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/"
+    csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_games_cleaned_data_path_name) if csv_file_name.endswith('.csv')]
+    all_df = []
+
+    for csv_file_name in csv_files_names:
+        csv_file_path_name = os.path.join(season_games_cleaned_data_path_name, csv_file_name)
+        df = pd.read_csv(csv_file_path_name)
+        all_df.append(df)
+    combined_df = pd.concat(all_df, ignore_index=True)
+
+    return combined_df
     
     
     
