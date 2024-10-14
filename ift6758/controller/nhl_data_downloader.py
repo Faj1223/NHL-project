@@ -121,7 +121,7 @@ class NHLDataDownloader:
         """Extract shot and goal data for a specific game"""
         game_data = self.save_and_get_game_data(game_id)
         if game_data:
-            return extract_shots_and_goals(game_data)
+            return self.extract_shots_and_goals(game_data)
         else:
             print(f"Failed to extract shot and goal data for game {game_id}.")
             return None
@@ -287,6 +287,8 @@ class NHLDataDownloader:
                     "x_coord": details.get("xCoord", None),
                     "y_coord": details.get("yCoord", None),
                     "event_owner_team_id": details.get("eventOwnerTeamId",None),
+                    "home_team_defending_side": event.get("homeTeamDefendingSide","Unknown"),
+                    "zone_code": event.get("zoneCode", "Unknown"),
                     "team_name": team_name,
                     "team_type": team_type,
                     "empty_net": empty_net_status,
