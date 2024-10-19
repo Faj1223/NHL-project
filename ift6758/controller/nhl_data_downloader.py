@@ -121,7 +121,7 @@ class NHLDataDownloader:
         """Extract shot and goal data for a specific game"""
         game_data = self.save_and_get_game_data(game_id)
         if game_data:
-            return extract_shots_and_goals(game_data)
+            return self.extract_shots_and_goals(game_data)
         else:
             print(f"Failed to extract shot and goal data for game {game_id}.")
             return None
@@ -324,7 +324,7 @@ class NHLDataDownloader:
 #                clean_df = downloader.extract_shots_and_goals(game_data)
 #                clean_df.to_csv(clean_game_file)
 #                return clean_df
-                
+
 #            except json.JSONDecodeError as e:
 #                print(f"Failed to decode cleaned JSON: {e}")
 #                return None
