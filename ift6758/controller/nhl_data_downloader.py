@@ -10,7 +10,7 @@ class NHLDataDownloader:
     DATA_DIR = "../data/play_by_play"
     BASE_URL = "https://api-web.nhle.com/v1/gamecenter/"
     PLAY_BY_PLAY_SUFFIX_URL = "/play-by-play"
-    
+
     def __init__(self, base_url="https://api-web.nhle.com/v1/gamecenter/", data_dir="../data/play_by_play", suffix_url="/play-by-play"):
         self.base_url = base_url
         # Ensure the play_by_play folder is always under ift6758/data
@@ -25,9 +25,8 @@ class NHLDataDownloader:
                 description='Loading:',
             )
 
-    def save_and_get_game_data(self, game_id):
+    def save_and_get_game_data(self, game_id, season):
         """Download data for a specific game ID"""
-        season = str(game_id[:4])
         game_file = f"{self.data_dir}/{season}/{game_id}.json"
         os.makedirs(f"{self.data_dir}/{season}", exist_ok=True)
 
@@ -86,42 +85,42 @@ class NHLDataDownloader:
                 display(self.progress_bar)
 
         os.makedirs(f"{self.data_dir}/{season}_CleanCSV", exist_ok=True)
-        
+
         all_games = {}
         for game_num in range(1, total_games+1):
             game_id = NHLDataDownloader.generate_regular_season_game_id(season, game_num)
-            game_data = self.save_and_get_game_data(game_id)
+            game_data = self.save_and_get_game_data(game_id, season)
             if game_data:
                 all_games[game_id] = game_data
                 # Save the cleaned dataframe version
                 clean_game_file = f"{self.data_dir}/{season}_CleanCSV/{game_id}.csv"
-                clean_df = self.extract_shots_and_goals(game_data)
-                clean_df.to_csv(clean_game_file)
+                clean_df = self.extract_shots_and_goals(game_data, season)
+                clean_df.to_csv(clean_game_file,index=False)
 
             self.progress_bar.value = (game_num-1) / total_games
-            
+
         return all_games
 
     def download_playoff_series(self, season, round_num, matchup, total_games=7):
-        """Download all games in a playoff series"""      
+        """Download all games in a playoff series"""
         series_data = {}
         for game_num in range(1, total_games+1):
             game_id = self.generate_playoff_game_id(season, round_num, matchup, game_num)
-            game_data = self.save_and_get_game_data(game_id)
+            game_data = self.save_and_get_game_data(game_id, season)
             if game_data:
                 series_data[game_id] = game_data
                 # Save the cleaned dataframe version
                 clean_game_file = f"{self.data_dir}/{season}_CleanCSV/{game_id}.csv"
-                clean_df = self.extract_shots_and_goals(game_data)
-                clean_df.to_csv(clean_game_file)
-            
+                clean_df = self.extract_shots_and_goals(game_data, season)
+                clean_df.to_csv(clean_game_file,index=False)
+
         return series_data
 
-    def extract_shots_and_goals_for_game(self, game_id):
+    def extract_shots_and_goals_for_game(self, game_id, season):
         """Extract shot and goal data for a specific game"""
-        game_data = self.save_and_get_game_data(game_id)
+        game_data = self.save_and_get_game_data(game_id, season)
         if game_data:
-            return self.extract_shots_and_goals(game_data)
+            return self.extract_shots_and_goals(game_data, season)
         else:
             print(f"Failed to extract shot and goal data for game {game_id}.")
             return None
@@ -140,16 +139,16 @@ class NHLDataDownloader:
         else:
             with output_widget:
                 display(self.progress_bar)
-                
+
         rounds_matchups = {
             1: 8,  # Round 1 has 8 matchups
             2: 4,  # Round 2 has 4 matchups
             3: 2,  # Round 3 has 2 matchups
             4: 1  # Round 4 (Stanley Cup Final) has 1 matchup
         }
-        
+
         os.makedirs(f"{self.data_dir}/{season}_CleanCSV", exist_ok=True)
-        
+
         all_games = {}
         for round_num, matchups in rounds_matchups.items():
             for matchup in range(1, matchups + 1):
@@ -167,9 +166,9 @@ class NHLDataDownloader:
             self.download_playoffs(season)
 
     ########################################################################################
-    # Method below are used for data cleaning 
+    # Method below are used for data cleaning
     ########################################################################################
-    
+
     #Helper function to parse the situation code
     def parse_situation_code(self, situation_code):
         """
@@ -190,37 +189,37 @@ class NHLDataDownloader:
                 'home_skaters': home_skaters,
                 'home_goalie_in_net': home_goalie_in_net
             }
-    
+
     #Helper function to get the strength status
     def get_strength_status(self, parsed_situation):
         """
         Determine whether the goal or shot occurred during equal strength, power play, or penalty kill.
-    
+
         Arguments:
         - parsed_situation: Dictionary containing details of skaters and goalie presence.
-    
+
         Returns:
         - A string indicating 'Equal Strength', 'Power Play', or 'Penalty Kill'
         """
         away_skaters = parsed_situation.get('away_skaters', 0)
         home_skaters = parsed_situation.get('home_skaters', 0)
-    
+
         if home_skaters == away_skaters:
             return "Equal Strength"
         elif home_skaters > away_skaters:
             return "Power Play"  # Home team has more skaters
         else:
             return "Penalty Kill"  # Home team has fewer skaters
-    
+
     #Helper function to determine if the net is empty
     def is_net_empty_goal(self, team_type, parsed_situation):
         """
         Determine if the net is empty based on the team type (home or away).
-    
+
         Args:
         - team_type: A string indicating whether the team is 'home' or 'away'
         - parsed_situation: A dictionary containing parsed situation details (goalie in net, skaters, etc.)
-    
+
         Returns:
         - True if the net is empty for the given team, False otherwise.
         """
@@ -229,35 +228,85 @@ class NHLDataDownloader:
         elif team_type == "away":
             return not parsed_situation.get('home_goalie_in_net', True)  # If home goalie is not in net
         return False  # Default: net is not empty if team type is unknown
-    
+
+    #Helper function to determine the home team's defending side
+    @staticmethod
+    def get_home_team_defending_side(x_coord, event_owner_team_id, home_team_id, zone_code, previous_defending_side):
+        """
+        Determines which side ("left" or "right") is the home team’s defensive zone
+        based on the x-coordinate, event owner, and zone code.
+
+        Parameters:
+        - x_coord: x-coordinate of the event.
+        - event_owner_team_id: ID of the team associated with the event.
+        - home_team_id: The ID of the home team.
+        - zone_code: Zone code indicating if the event is offensive ("O") or defensive ("D").
+
+        Returns:
+        - "left" or "right" indicating the defensive side of the home team for the event.
+        """
+        # Case 1: Event involves the home team
+        if event_owner_team_id == home_team_id:
+            if zone_code == "O":  # Offensive zone for home team
+                # Current side is offensive, so the opposite side is defensive
+                if x_coord > 0:
+                    return "left"  # Right is offensive, so left is defensive
+                elif x_coord < 0:
+                    return "right"  # Left is offensive, so right is defensive
+            elif zone_code == "D":  # Defensive zone for home team
+                # Current side is defensive
+                if x_coord > 0:
+                    return "right"  # Right is defensive
+                elif x_coord < 0:
+                    return "left"  # Left is defensive
+
+        # Case 2: Event involves the away team
+        else:
+            if zone_code == "D":  # Defensive zone for home team
+                # Current side is defensive
+                if x_coord > 0:
+                    return "left"  # Right is defensive for away, so left is defensive for home
+                elif x_coord < 0:
+                    return "right"  # Left is defensive for away, so right is defensive for home
+            elif zone_code == "O":  # Offensive zone for away team
+                # Current side is offensive
+                if x_coord > 0:
+                    return "right"  # Right is offensive for away, so right is defensive for home
+                elif x_coord < 0:
+                    return "left"  # Left is offensive for away, so left is defensive for home
+        if zone_code == "N":
+            return previous_defending_side
+        return None
+
     #Helper function to extract shots and goals
-    def extract_shots_and_goals(self, game_data):
+    def extract_shots_and_goals(self, game_data, season):
         """Extract 'shots-on-goal' and 'hit' from the game data and return them as a pandas DataFrame."""
         events = game_data.get("plays",[])
         extracted_events = []
-    
+
         # Get home and away team information
         home_team_id = game_data.get("homeTeam", {}).get("id", None)
         away_team_id = game_data.get("awayTeam", {}).get("id", None)
         home_team_name = game_data.get("homeTeam", {}).get("name", {}).get("default", "Unknown")
         away_team_name = game_data.get("awayTeam", {}).get("name", {}).get("default", "Unknown")
-    
+
+        previous_defending_side = None
         for event in events:
             details = event.get("details",{})
             event_type =event.get("typeDescKey","")
             situation_code = event.get("situationCode",None)
-    
+
             if event_type in ["shot-on-goal","goal"]:
                 parsed_situation = self.parse_situation_code(situation_code) if situation_code else {}
                 strength_status = self.get_strength_status(parsed_situation)
-    
+
                 # Get the number of skaters for both teams
                 home_skaters = parsed_situation.get('home_skaters', 0)
                 away_skaters = parsed_situation.get('away_skaters', 0)
-    
+
                 # Add the real strength info as 'XvY' (e.g., 5v4)
                 real_strength = f"{home_skaters}v{away_skaters}"
-    
+
                 # Determine if the team is home or away
                 event_owner_team_id = details.get("eventOwnerTeamId", None)
                 if event_owner_team_id == home_team_id:
@@ -269,12 +318,22 @@ class NHLDataDownloader:
                 else:
                     team_type = "unknown"
                     team_name = "unknown"
-    
+
                 # Determine if the net is empty for the current team
                 empty_net_status = self.is_net_empty_goal(team_type, parsed_situation)
                 # Default shot type handling
                 shot_type = details.get("shotType", "Unknown")
-    
+
+                # Determine the home team's defending side for this specific event
+                x_coord = details.get("xCoord", None)
+                if season < 2020:
+                    zone_code = details.get("zoneCode", "")
+                    home_team_defending_side = self.get_home_team_defending_side(x_coord, event_owner_team_id, home_team_id, zone_code, previous_defending_side)
+                    if home_team_defending_side is not None:
+                        previous_defending_side = home_team_defending_side
+                else:
+                    home_team_defending_side = game_data.get("homeTeamDefendingSide", None)
+
                 event_info ={
                     "game_id":game_data.get("id",None),
                     "game_date":game_data.get("gameDate",None),
@@ -284,7 +343,7 @@ class NHLDataDownloader:
                     "event_type": event_type,
                     "is_goal": event_type == "goal",
                     "shot_type": shot_type,
-                    "x_coord": details.get("xCoord", None),
+                    "x_coord": x_coord,
                     "y_coord": details.get("yCoord", None),
                     "event_owner_team_id": details.get("eventOwnerTeamId",None),
                     "team_name": team_name,
@@ -297,9 +356,9 @@ class NHLDataDownloader:
                     "goalie_id": details.get("goalieInNetId", "Unknown"),
                 }
                 extracted_events.append(event_info)
-    
+
         df = pd.DataFrame(extracted_events)
-    
+
         return df
 
 
