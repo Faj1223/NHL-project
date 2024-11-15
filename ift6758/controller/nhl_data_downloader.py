@@ -326,13 +326,13 @@ class NHLDataDownloader:
 
                 # Determine the home team's defending side for this specific event
                 x_coord = details.get("xCoord", None)
-                if season < 2020:
+                if season < 2019:
                     zone_code = details.get("zoneCode", "")
                     home_team_defending_side = self.get_home_team_defending_side(x_coord, event_owner_team_id, home_team_id, zone_code, previous_defending_side)
                     if home_team_defending_side is not None:
                         previous_defending_side = home_team_defending_side
                 else:
-                    home_team_defending_side = game_data.get("homeTeamDefendingSide", None)
+                    home_team_defending_side = event.get("homeTeamDefendingSide", None)
 
                 event_info ={
                     "game_id":game_data.get("id",None),
@@ -346,7 +346,7 @@ class NHLDataDownloader:
                     "x_coord": x_coord,
                     "y_coord": details.get("yCoord", None),
                     "event_owner_team_id": details.get("eventOwnerTeamId",None),
-                    "home_team_defending_side": event.get("homeTeamDefendingSide","Unknown"),
+                    "home_team_defending_side": home_team_defending_side,
                     "zone_code": event.get("zoneCode", "Unknown"),
                     "team_name": team_name,
                     "team_type": team_type,
