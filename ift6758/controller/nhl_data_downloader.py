@@ -347,7 +347,6 @@ class NHLDataDownloader:
                     "y_coord": details.get("yCoord", None),
                     "event_owner_team_id": details.get("eventOwnerTeamId",None),
                     "home_team_defending_side": home_team_defending_side,
-                    "zone_code": event.get("zoneCode", "Unknown"),
                     "team_name": team_name,
                     "team_type": team_type,
                     "empty_net": empty_net_status,
@@ -365,34 +364,67 @@ class NHLDataDownloader:
 
 
 
-def get_game_dataframe(game_id):
+#def get_game_dataframe(game_id):
+#    season = str(game_id[:4])
+#    clean_game_file = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/{game_id}.csv"
+#    os.makedirs(f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV", exist_ok=True)
+
+#    if os.path.exists(clean_game_file):
+#        return pd.read_csv(clean_game_file)
+#    else:
+#        url = f"{NHLDataDownloader.BASE_URL}{game_id}{NHLDataDownloader.PLAY_BY_PLAY_SUFFIX_URL}"
+#        response = requests.get(url)
+#        if response.status_code == 200:
+#            try:
+#                game_data = json.loads(response.text)
+
+#                downloader = NHLDataDownloader()
+#                # Save the cleaned dataframe version
+#                clean_game_file = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/{game_id}.csv"
+#                clean_df = downloader.extract_shots_and_goals(game_data)
+#                clean_df.to_csv(clean_game_file)
+#                return clean_df
+
+#            except json.JSONDecodeError as e:
+#                print(f"Failed to decode cleaned JSON: {e}")
+#                return None
+#        else:
+#            print(f"Failed to download data for game {game_id}.")
+#            return None
+
+
+
+def get_dataframe_from_csv_file(game_id: str) -> pd.DataFrame:
     season = str(game_id[:4])
-    clean_game_file = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/{game_id}.csv"
-    os.makedirs(f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV", exist_ok=True)
+    csv_file_path_name = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/{game_id}.csv"
 
-    if os.path.exists(clean_game_file):
-        return pd.read_csv(clean_game_file)
+    if os.path.exists(csv_file_path_name):
+        return pd.read_csv(csv_file_path_name)
     else:
-        url = f"{NHLDataDownloader.BASE_URL}{game_id}{NHLDataDownloader.PLAY_BY_PLAY_SUFFIX_URL}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            try:
-                game_data = json.loads(response.text)
+        print(f"Le fichier {game_id}.csv n'existe pas.")
+        return None
 
-                downloader = NHLDataDownloader()
-                # Save the cleaned dataframe version
-                clean_game_file = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/{game_id}.csv"
-                clean_df = downloader.extract_shots_and_goals(game_data)
-                clean_df.to_csv(clean_game_file)
-                return clean_df
-                
-            except json.JSONDecodeError as e:
-                print(f"Failed to decode cleaned JSON: {e}")
-                return None
-        else:
-            print(f"Failed to download data for game {game_id}.")
-            return None
-    
-    
-    
-    
+
+
+#def clean_games_data(season: int):
+#    season_games_data_path_name = f"{NHLDataDownloader.DATA_DIR}/{season}/"
+#    json_files_names = [json_file_name for json_file_name in os.listdir(season_games_data_path_name) if json_file_name.endswith('.json')]
+
+#    for json_file_name in json_files_names:
+#        game_id = json_file_name.replace('.json', '')
+#        get_game_dataframe(game_id)
+
+
+
+def get_dataframe_from_concatenated_csv_files(season: int) -> pd.DataFrame:
+    season_games_cleaned_data_path_name = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/"
+    csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_games_cleaned_data_path_name) if csv_file_name.endswith('.csv')]
+    all_df = []
+
+    for csv_file_name in csv_files_names:
+        csv_file_path_name = os.path.join(season_games_cleaned_data_path_name, csv_file_name)
+        df = pd.read_csv(csv_file_path_name)
+        all_df.append(df)
+    combined_df = pd.concat(all_df, ignore_index=True)
+
+    return combined_df
