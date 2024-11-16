@@ -333,6 +333,8 @@ class NHLDataDownloader:
                         previous_defending_side = home_team_defending_side
                 else:
                     home_team_defending_side = event.get("homeTeamDefendingSide", None)
+                    if home_team_defending_side is not None:
+                        previous_defending_side = home_team_defending_side
 
                 event_info ={
                     "game_id":game_data.get("id",None),
