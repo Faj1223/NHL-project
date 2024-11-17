@@ -331,29 +331,32 @@ class NHLDataDownloader:
 
     #Helper function to calculate distance and angle
     @staticmethod
-    def calculate_distance_and_angle(x_coord, y_coord, home_team_defending_side):
+    def calculate_distance_and_angle(x_coord, y_coord, team_type, home_team_defending_side):
         """
-        Calculate the distance and angle to the net based on the event's coordinates
-        and the home team's defending side.
+        Calculate the distance and angle to the net based on the event's coordinates,
+        team type, and the home team's defending side.
 
         Parameters:
         - x_coord: x-coordinate of the event.
         - y_coord: y-coordinate of the event.
+        - team_type: Indicates whether the event involves the home or away team ('home' or 'away').
         - home_team_defending_side: The side ("left" or "right") the home team is defending.
 
         Returns:
         - distance_to_net: Distance from the event location to the net.
         - angle_to_net: Angle from the event location to the net (in degrees).
         """
-        if x_coord is None or y_coord is None:
-            return None, None  # Return None if coordinates are missing
+        if x_coord is None or y_coord is None or home_team_defending_side not in ["left", "right"]:
+            return np.nan, np.nan  # Return NaN for invalid inputs
 
-        if home_team_defending_side == "right":
-            net_x = 100  # Net on the right side
-        elif home_team_defending_side == "left":
-            net_x = -100  # Net on the left side
+        # Determine net_x based on team type and defending side
+        if team_type == "home":
+            net_x = 100 if home_team_defending_side == "left" else -100
+        elif team_type == "away":
+            net_x = -100 if home_team_defending_side == "left" else 100
         else:
-            net_x = 100  # Default to the right side if unknown
+            return np.nan, np.nan  # Invalid team type
+
         net_y = 0  # Assume the net is centered on the y-axis
 
         # Calculate distance and angle
@@ -423,8 +426,7 @@ class NHLDataDownloader:
 
                 distance_to_net, angle_to_net = None, None
                 if x_coord is not None and y_coord is not None:
-                    distance_to_net, angle_to_net = self.calculate_distance_and_angle(x_coord, y_coord,
-                                                                                      home_team_defending_side)
+                    distance_to_net, angle_to_net = self.calculate_distance_and_angle(x_coord, y_coord,team_type, home_team_defending_side)
                 else:
                     print(
                         f"Game ID {game_data.get('id')}: Missing coordinates for event ID {event.get('eventId')}, skipping distance/angle calculation.")
@@ -432,6 +434,7 @@ class NHLDataDownloader:
                 event_info ={
                     "game_id":game_data.get("id",None),
                     "game_date":game_data.get("gameDate",None),
+                    "home_team_id": home_team_id,
                     "period": event.get("periodDescriptor",{}).get("number",None),
                     "time_in_period": event.get("timeInPeriod",None),
                     "event_id": event.get("eventId",None),
