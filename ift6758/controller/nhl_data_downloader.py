@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import pandas as pd
 import requests
 import json
@@ -165,6 +167,44 @@ class NHLDataDownloader:
             self.download_regular_season(season)
             self.download_playoffs(season)
 
+    def load_season_data(self, season_range):
+        """
+        Load and concatenate only regular season data for a specified range of seasons.
+
+        Parameters:
+        - season_range: List or range of season years (e.g., range(2016, 2020)).2020 is not included
+
+        Returns:
+        - A Pandas DataFrame containing the combined regular season data for the given seasons.
+        """
+        all_data = []
+
+        for season in season_range:
+            folder_name = f"{season}_CleanCSV"
+            folder_path = os.path.join(self.DATA_DIR, folder_name)
+
+            if os.path.exists(folder_path):
+                csv_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".csv")]
+
+                for file in csv_files:
+                    game_id = os.path.basename(file).split(".")[0]
+                    if game_id.startswith(str(season)) and game_id[4:6] == "02":  # Check game type "02"
+                        df = pd.read_csv(file)
+                        all_data.append(df)
+
+                print(f"Loaded regular season data from folder: {folder_name}")
+            else:
+                print(f"Folder not found for season: {season} ({folder_name})")
+
+        # Combine all data into a single DataFrame
+        if all_data:
+            combined_df = pd.concat(all_data, ignore_index=True)
+            print(f"Combined regular season data for seasons {list(season_range)}.")
+            return combined_df
+        else:
+            print("No regular season data found for the specified seasons.")
+            return pd.DataFrame()
+
     ########################################################################################
     # Method below are used for data cleaning
     ########################################################################################
@@ -223,10 +263,14 @@ class NHLDataDownloader:
         Returns:
         - True if the net is empty for the given team, False otherwise.
         """
+        # Ensure NaN values are treated as False (0)
+        away_goalie_in_net = parsed_situation.get('away_goalie_in_net', False) or False
+        home_goalie_in_net = parsed_situation.get('home_goalie_in_net', False) or False
+
         if team_type == "home":
-            return not parsed_situation.get('away_goalie_in_net', True)  # If away goalie is not in net
+            return not away_goalie_in_net  # If away goalie is not in net, it's an empty net for home
         elif team_type == "away":
-            return not parsed_situation.get('home_goalie_in_net', True)  # If home goalie is not in net
+            return not home_goalie_in_net  # If home goalie is not in net, it's an empty net for away
         return False  # Default: net is not empty if team type is unknown
 
     #Helper function to determine the home team's defending side
@@ -245,6 +289,10 @@ class NHLDataDownloader:
         Returns:
         - "left" or "right" indicating the defensive side of the home team for the event.
         """
+        if x_coord is None:
+            print(
+                f"x_coord is None for the event with event_owner_team_id: {event_owner_team_id} and zone_code: {zone_code}. Using previous defending side.")
+            return previous_defending_side
         # Case 1: Event involves the home team
         if event_owner_team_id == home_team_id:
             if zone_code == "O":  # Offensive zone for home team
@@ -276,7 +324,43 @@ class NHLDataDownloader:
                     return "left"  # Left is offensive for away, so left is defensive for home
         if zone_code == "N":
             return previous_defending_side
+            # Default return if no other conditions match
+        print(
+            f"No matching conditions for event_owner_team_id: {event_owner_team_id}, home_team_id: {home_team_id}, zone_code: {zone_code}. Returning None.")
         return None
+
+    #Helper function to calculate distance and angle
+    @staticmethod
+    def calculate_distance_and_angle(x_coord, y_coord, home_team_defending_side):
+        """
+        Calculate the distance and angle to the net based on the event's coordinates
+        and the home team's defending side.
+
+        Parameters:
+        - x_coord: x-coordinate of the event.
+        - y_coord: y-coordinate of the event.
+        - home_team_defending_side: The side ("left" or "right") the home team is defending.
+
+        Returns:
+        - distance_to_net: Distance from the event location to the net.
+        - angle_to_net: Angle from the event location to the net (in degrees).
+        """
+        if x_coord is None or y_coord is None:
+            return None, None  # Return None if coordinates are missing
+
+        if home_team_defending_side == "right":
+            net_x = 100  # Net on the right side
+        elif home_team_defending_side == "left":
+            net_x = -100  # Net on the left side
+        else:
+            net_x = 100  # Default to the right side if unknown
+        net_y = 0  # Assume the net is centered on the y-axis
+
+        # Calculate distance and angle
+        distance_to_net = ((x_coord - net_x) ** 2 + (y_coord - net_y) ** 2) ** 0.5
+        angle_to_net = np.arctan2(y_coord - net_y, net_x - x_coord) * (180 / np.pi)  # Convert to degrees
+
+        return distance_to_net, angle_to_net
 
     #Helper function to extract shots and goals
     def extract_shots_and_goals(self, game_data, season):
@@ -326,6 +410,7 @@ class NHLDataDownloader:
 
                 # Determine the home team's defending side for this specific event
                 x_coord = details.get("xCoord", None)
+                y_coord = details.get("yCoord", None)
                 if season < 2019:
                     zone_code = details.get("zoneCode", "")
                     home_team_defending_side = self.get_home_team_defending_side(x_coord, event_owner_team_id, home_team_id, zone_code, previous_defending_side)
@@ -335,6 +420,14 @@ class NHLDataDownloader:
                     home_team_defending_side = event.get("homeTeamDefendingSide", None)
                     if home_team_defending_side is not None:
                         previous_defending_side = home_team_defending_side
+
+                distance_to_net, angle_to_net = None, None
+                if x_coord is not None and y_coord is not None:
+                    distance_to_net, angle_to_net = self.calculate_distance_and_angle(x_coord, y_coord,
+                                                                                      home_team_defending_side)
+                else:
+                    print(
+                        f"Game ID {game_data.get('id')}: Missing coordinates for event ID {event.get('eventId')}, skipping distance/angle calculation.")
 
                 event_info ={
                     "game_id":game_data.get("id",None),
@@ -346,11 +439,13 @@ class NHLDataDownloader:
                     "is_goal": event_type == "goal",
                     "shot_type": shot_type,
                     "x_coord": x_coord,
-                    "y_coord": details.get("yCoord", None),
+                    "y_coord": y_coord,
                     "event_owner_team_id": details.get("eventOwnerTeamId",None),
                     "home_team_defending_side": home_team_defending_side,
                     "team_name": team_name,
                     "team_type": team_type,
+                    "distance_to_net": distance_to_net,
+                    "angle_to_net": angle_to_net,
                     "empty_net": empty_net_status,
                     "strength_status": strength_status,
                     "real_strength_home_vs_away": real_strength,
@@ -363,6 +458,10 @@ class NHLDataDownloader:
         df = pd.DataFrame(extracted_events)
 
         return df
+
+
+
+
 
 
 
@@ -430,3 +529,4 @@ def get_dataframe_from_concatenated_csv_files(season: int) -> pd.DataFrame:
     combined_df = pd.concat(all_df, ignore_index=True)
 
     return combined_df
+
