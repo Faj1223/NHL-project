@@ -74,51 +74,135 @@ class NHLShotVisualizer:
         joint_plot.set_axis_labels("Distance to Net", "Angle to Net (degrees)", fontsize=12)
         plt.show()
 
-    def calculate_goal_rate(self, x_column, num_bins):
+    # def calculate_goal_rate(self, x_column, num_bins):
+    #     """
+    #     Calculate goal rate as a function of a given column (distance or angle).
+    #
+    #     Parameters:
+    #     - x_column: The column to calculate goal rate against (e.g., 'distance_to_net' or 'angle_to_net').
+    #     - num_bins: Number of bins to group the data.
+    #
+    #     Returns:
+    #     - A DataFrame with binned x_column values and corresponding goal rates.
+    #     """
+    #     # Work with a copy of the DataFrame to avoid SettingWithCopyWarning
+    #     df = self.dataframe.copy()
+    #     df['bin'] = pd.cut(df[x_column], bins=num_bins)
+    #
+    #     # Group by the bins and calculate goals and totals, explicitly setting observed=False
+    #     grouped = df.groupby('bin', observed=False).agg(
+    #         goals=('is_goal', 'sum'),
+    #         total=('is_goal', 'count')
+    #     )
+    #     grouped['goal_rate'] = grouped['goals'] / grouped['total']
+    #
+    #     # Add the bin center for plotting
+    #     grouped['bin_center'] = grouped.index.map(lambda x: x.mid)
+    #     return grouped[['bin_center', 'goal_rate']]
+    #
+    # def plot_goal_rate(self, x_column, num_bins, xlabel, title):
+    #     """
+    #     Plot goal rate as a function of a given column (distance or angle).
+    #
+    #     Parameters:
+    #     - x_column: The column to calculate and plot goal rate against.
+    #     - num_bins: Number of bins for grouping.
+    #     - xlabel: Label for the x-axis.
+    #     - title: Title of the plot.
+    #     """
+    #     # Correct call to calculate_goal_rate
+    #     goal_rate_data = self.calculate_goal_rate(x_column=x_column, num_bins=num_bins)
+    #
+    #     # Plotting the goal rate
+    #     plt.figure(figsize=(10, 6))
+    #     sns.lineplot(x=goal_rate_data['bin_center'], y=goal_rate_data['goal_rate'], marker='o')
+    #     plt.title(title, fontsize=14)
+    #     plt.xlabel(xlabel, fontsize=12)
+    #     plt.ylabel("Goal Rate", fontsize=12)
+    #     plt.grid(True)
+    #     plt.show()
+
+    def calculate_goal_rate(self, column, num_bins):
         """
-        Calculate goal rate as a function of a given column (distance or angle).
+        Calculate goal rate as a function of a specified column (e.g., distance_to_net or angle_to_net).
 
         Parameters:
-        - x_column: The column to calculate goal rate against (e.g., 'distance_to_net' or 'angle_to_net').
+        - column: The column to calculate goal rate against (e.g., 'distance_to_net', 'angle_to_net').
         - num_bins: Number of bins to group the data.
 
         Returns:
-        - A DataFrame with binned x_column values and corresponding goal rates.
+        - A DataFrame with bin centers and goal rates.
         """
-        # Work with a copy of the DataFrame to avoid SettingWithCopyWarning
+        # Work with a copy of the DataFrame to avoid modifying the original
         df = self.dataframe.copy()
-        df['bin'] = pd.cut(df[x_column], bins=num_bins)
 
-        # Group by the bins and calculate goals and totals, explicitly setting observed=False
+        # Bin the specified column
+        df['bin'] = pd.cut(df[column], bins=num_bins)
+
+        # Group by the bins
         grouped = df.groupby('bin', observed=False).agg(
-            goals=('is_goal', 'sum'),
-            total=('is_goal', 'count')
+            total_shots=('is_goal', 'count'),
+            goals=('is_goal', 'sum')
         )
-        grouped['goal_rate'] = grouped['goals'] / grouped['total']
 
-        # Add the bin center for plotting
+        # Calculate goal rate
+        grouped['goal_rate'] = grouped['goals'] / grouped['total_shots']
+
+        # Add bin center for plotting
         grouped['bin_center'] = grouped.index.map(lambda x: x.mid)
-        return grouped[['bin_center', 'goal_rate']]
+        return grouped
 
-    def plot_goal_rate(self, x_column, num_bins, xlabel, title):
+    def plot_goal_rate(self, column, num_bins=20, xlabel="", title=""):
         """
-        Plot goal rate as a function of a given column (distance or angle).
+        Plot goal rate as a function of a specified column (e.g., distance_to_net or angle_to_net).
 
         Parameters:
-        - x_column: The column to calculate and plot goal rate against.
-        - num_bins: Number of bins for grouping.
+        - column: The column to calculate and plot goal rate against (e.g., 'distance_to_net', 'angle_to_net').
+        - num_bins: Number of bins to group the data.
         - xlabel: Label for the x-axis.
         - title: Title of the plot.
         """
-        # Correct call to calculate_goal_rate
-        goal_rate_data = self.calculate_goal_rate(x_column=x_column, num_bins=num_bins)
+        # Calculate goal rate
+        goal_rate_data = self.calculate_goal_rate(column, num_bins)
 
-        # Plotting the goal rate
+        # Plot
         plt.figure(figsize=(10, 6))
-        sns.lineplot(x=goal_rate_data['bin_center'], y=goal_rate_data['goal_rate'], marker='o')
-        plt.title(title, fontsize=14)
-        plt.xlabel(xlabel, fontsize=12)
-        plt.ylabel("Goal Rate", fontsize=12)
+        sns.lineplot(
+            x=goal_rate_data['bin_center'],
+            y=goal_rate_data['goal_rate'],
+            marker='o',
+            color='blue'
+        )
+        plt.title(title, fontsize=16)
+        plt.xlabel(xlabel, fontsize=14)
+        plt.ylabel("Goal Rate", fontsize=14)
+        # Adjust x-axis range dynamically based on the column
+        if column == "distance_to_net":
+            plt.xlim(0, 100)  # most shots occur at closer ranges,therefore focus on shorter distances
+        elif column == "angle_to_net":
+            plt.xlim(-180, 180)  # Full range of angles in degrees
+
+        plt.grid(True)
+        plt.show()
+
+    def plot_goal_histogram(self):
+        """
+        Plot a histogram of goals by distance, separating empty net and non-empty net events.
+        """
+        plt.figure(figsize=(10, 6))
+        sns.histplot(
+            data=self.dataframe,
+            x="distance_to_net",
+            hue="empty_net",
+            bins=30,
+            kde=False,
+            palette="viridis",
+            alpha=0.7
+        )
+        plt.title("Goals Binned by Distance to Net (Empty Net vs Non-Empty Net)")
+        plt.xlabel("Distance to Net")
+        plt.ylabel("Number of Goals")
+        plt.legend(title="Empty Net", labels=["Non-Empty Net", "Empty Net"])
         plt.grid(True)
         plt.show()
 
