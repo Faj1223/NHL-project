@@ -431,6 +431,13 @@ class NHLDataDownloader:
                     print(
                         f"Game ID {game_data.get('id')}: Missing coordinates for event ID {event.get('eventId')}, skipping distance/angle calculation.")
 
+                # Assign shooter_id based on event type
+                shooter_id = (
+                    details.get("scoringPlayerId", "Unknown")
+                    if event_type == "goal"
+                    else details.get("shootingPlayerId", "Unknown")
+                )
+
                 event_info ={
                     "game_id":game_data.get("id",None),
                     "game_date":game_data.get("gameDate",None),
@@ -453,7 +460,7 @@ class NHLDataDownloader:
                     "strength_status": strength_status,
                     "real_strength_home_vs_away": real_strength,
                     "situation_code": situation_code,
-                    "shooter_id": details.get("shootingPlayerId", "Unknown"),
+                    "shooter_id": shooter_id,
                     "goalie_id": details.get("goalieInNetId", "Unknown"),
                 }
                 extracted_events.append(event_info)
