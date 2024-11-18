@@ -351,9 +351,9 @@ class NHLDataDownloader:
 
         # Determine net_x based on team type and defending side
         if team_type == "home":
-            net_x = 100 if home_team_defending_side == "left" else -100
+            net_x = 89 if home_team_defending_side == "left" else -89
         elif team_type == "away":
-            net_x = -100 if home_team_defending_side == "left" else 100
+            net_x = -89 if home_team_defending_side == "left" else 89
         else:
             return np.nan, np.nan  # Invalid team type
 
