@@ -1,10 +1,11 @@
 import pandas as pd
-from sklearn.utils import resample
-from sklearn.model_selection import train_test_split
+from sklearn.calibration import calibration_curve
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 from imblearn.over_sampling import SMOTE
+from sklearn.metrics import roc_curve, roc_auc_score
+import numpy as np
 
 
 class LogisticModelAnalyzer:
@@ -49,20 +50,6 @@ class LogisticModelAnalyzer:
         self.X_val = pd.concat([val_minority, val_majority])[['distance_to_net']]
         self.y_val = pd.concat([val_minority, val_majority])['is_goal']
 
-        # Print the original class distribution
-        print("Original class distribution:")
-        print(self.filtered_data['is_goal'].value_counts())
-        print(f"Is Goal (True): {self.filtered_data['is_goal'].sum()}")  # Assuming True or 1 represents 'Goal'
-
-        # Print the class distribution in the training set
-        print("\nTraining set class distribution:")
-        print(self.y_train.value_counts())
-        print(f"Is Goal (True) in Training Set: {self.y_train.sum()}")
-
-        # Print the class distribution in the validation set
-        print("\nValidation set class distribution:")
-        print(self.y_val.value_counts())
-        print(f"Is Goal (True) in Validation Set: {self.y_val.sum()}")
 
     def apply_smote(self):
         """
@@ -131,3 +118,99 @@ class LogisticModelAnalyzer:
         print("\nPotential Observations:")
         print("- After oversampling, the dataset is balanced.")
         print("- This approach prevents the model from being biased toward the majority class.")
+
+    def plot_roc_curve(self, probabilities, labels):
+        """
+        Plot the ROC curve and calculate AUC.
+        """
+        fpr, tpr, _ = roc_curve(labels, probabilities)
+        auc = roc_auc_score(labels, probabilities)
+        plt.figure()
+        plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.2f})")
+        plt.plot([0, 1], [0, 1], "k--", label="Random Classifier")
+        plt.title("ROC Curve")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.legend()
+        plt.show()
+
+    def plot_goal_rate_by_percentile(self, probabilities, labels):
+        """
+        Plot the goal rate (# goals / (# shots + # goals)) as a function of the shot probability percentiles.
+        """
+        percentiles = np.percentile(probabilities, np.arange(0, 101, 10))  # 10th, 20th, ..., 100th percentile
+        rates = []
+        for i in range(len(percentiles) - 1):
+            mask = (probabilities >= percentiles[i]) & (probabilities < percentiles[i + 1])
+            rate = np.mean(labels[mask]) if np.sum(mask) > 0 else 0
+            rates.append(rate)
+
+        plt.figure()
+        plt.plot(np.arange(10, 101, 10), rates, label="Model 1")
+        plt.title("Goal Rate")
+        plt.xlabel("Shot Probability Model Percentile")
+        plt.ylabel("Goals / (Shots + Goals)")
+        plt.legend()
+        plt.show()
+
+    def plot_cumulative_goals_by_percentile(self, probabilities, labels):
+        """
+        Plot the cumulative percentage of goals as a function of the shot probability percentiles.
+        """
+        # Ensure labels and probabilities are aligned
+        probabilities = pd.Series(probabilities).reset_index(drop=True)
+        labels = pd.Series(labels).reset_index(drop=True)
+
+        # Debugging step: Verify lengths
+        if len(probabilities) != len(labels):
+            raise ValueError(f"Mismatch in lengths: probabilities ({len(probabilities)}) and labels ({len(labels)})")
+
+        # Sort probabilities and labels in descending order of probabilities
+        sorted_indices = np.argsort(probabilities)[::-1]  # Descending order
+        sorted_labels = labels.iloc[sorted_indices]  # Align labels with sorted probabilities
+
+        # Compute cumulative sum of goals
+        cumulative_goals = np.cumsum(sorted_labels) / np.sum(sorted_labels)  # Normalized cumulative sum
+        percentiles = np.arange(1, len(cumulative_goals) + 1) / len(cumulative_goals) * 100
+
+        # Plot the cumulative goals vs percentiles
+        plt.plot(percentiles, cumulative_goals, label="Model")
+        plt.xlabel("Shot probability model percentile")
+        plt.ylabel("Cumulative % of goals")
+        plt.title("Cumulative Percentage of Goals")
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+    def plot_reliability_diagram(self, probabilities, labels):
+        """
+        Plot the reliability diagram (calibration curve).
+        """
+        prob_true, prob_pred = calibration_curve(labels, probabilities, n_bins=10)
+        plt.figure()
+        plt.plot(prob_pred, prob_true, label="Model 1")
+        plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
+        plt.title("Reliability Diagram")
+        plt.xlabel("Mean Predicted Probability")
+        plt.ylabel("Fraction of Positives")
+        plt.legend()
+        plt.show()
+
+    def evaluate_probabilities(self):
+        """
+        Run all evaluations and produce the required plots.
+        """
+        print("Calculating predicted probabilities...")
+        probabilities = self.model.predict_proba(self.X_val)[:, 1]  # Assuming class 1 corresponds to 'goal'
+
+        print("Plotting ROC curve...")
+        self.plot_roc_curve(probabilities, self.y_val)
+
+        print("Plotting goal rate by percentile...")
+        self.plot_goal_rate_by_percentile(probabilities, self.y_val)
+
+        print("Plotting cumulative goals by percentile...")
+        self.plot_cumulative_goals_by_percentile(probabilities, self.y_val)
+
+        print("Plotting reliability diagram...")
+        self.plot_reliability_diagram(probabilities, self.y_val)
