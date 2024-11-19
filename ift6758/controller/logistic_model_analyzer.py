@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.calibration import CalibrationDisplay
+from sklearn.calibration import CalibrationDisplay, calibration_curve
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
@@ -25,30 +25,53 @@ class LogisticModelAnalyzer:
         """
         Filter out rows where shooter_id is 'Unknown'.
         """
-        # self.filtered_data = self.dataframe[self.dataframe['shooter_id'] != "Unknown"]
-        self.filtered_data = self.dataframe.dropna(subset=['distance_to_net', 'is_goal'])
+        self.filtered_data = self.dataframe.dropna(subset=['distance_to_net','angle_to_net', 'is_goal'])
 
-    def prepare_data(self):
+    def validate_features(self, features):
         """
-        Prepare the data for training and validation by splitting it into train and validation sets.
+        Validate that all required features exist in the filtered dataset.
+
+        Parameters:
+        - features (list): List of features to validate.
+
+        Raises:
+        - ValueError if a feature is missing.
         """
-        # Split data manually
+        missing_features = [feature for feature in features if feature not in self.filtered_data.columns]
+        if missing_features:
+            raise ValueError(f"The following features are missing in the dataset: {missing_features}")
+
+    def prepare_data(self, features, train_frac=0.8):
+        """
+        Split the data into training and validation sets based on selected features.
+
+        Parameters:
+        - features (list): List of features to include in the model.
+        - train_frac (float): Fraction of data to use for training. Default is 0.8 (80%).
+        """
+        self.validate_features(features)
+
+        print(f"Preparing data with features: {features}...")
+        # Separate minority and majority classes
         minority_class = self.filtered_data[self.filtered_data['is_goal'] == 1]
         majority_class = self.filtered_data[self.filtered_data['is_goal'] == 0]
 
-        # Ensure both classes are present in training
-        train_minority = minority_class.sample(frac=0.8, random_state=42)
-        train_majority = majority_class.sample(frac=0.8, random_state=42)
+        # Perform stratified sampling for training and validation sets
+        train_minority = minority_class.sample(frac=train_frac, random_state=42)
+        train_majority = majority_class.sample(frac=train_frac, random_state=42)
 
-        # Combine and shuffle
-        self.X_train = pd.concat([train_minority, train_majority])[['distance_to_net']]
+        self.X_train = pd.concat([train_minority, train_majority])[features]
         self.y_train = pd.concat([train_minority, train_majority])['is_goal']
 
-        # Validation set
         val_minority = minority_class.drop(train_minority.index)
         val_majority = majority_class.drop(train_majority.index)
-        self.X_val = pd.concat([val_minority, val_majority])[['distance_to_net']]
+
+        self.X_val = pd.concat([val_minority, val_majority])[features]
         self.y_val = pd.concat([val_minority, val_majority])['is_goal']
+
+        print("Data prepared:")
+        print(f" - Training samples: {len(self.X_train)}")
+        print(f" - Validation samples: {len(self.X_val)}")
 
 
     def apply_smote(self):
@@ -93,15 +116,18 @@ class LogisticModelAnalyzer:
         plt.title("Confusion Matrix")
         plt.show()
 
-    def run_analysis(self,apply_smote=False):
+    def run_analysis(self,features=None, apply_smote=False):
         """
         Run the full analysis pipeline: filtering, oversampling, training, evaluation, and visualization.
         """
+        if features is None:
+            features = ["distance_to_net"]  # Default feature
+
         print("Filtering data...")
         self.filter_data()
 
         print("Preparing data...")
-        self.prepare_data()
+        self.prepare_data(features)
 
         if apply_smote:
             print("Applying SMOTE to oversample minority class...")
@@ -116,109 +142,150 @@ class LogisticModelAnalyzer:
         print("\nPlotting confusion matrix...")
         self.plot_confusion_matrix(predictions)
 
-    def plot_roc_curve(self, probabilities, labels):
+    def plot_combined_roc_curve(self, results, labels):
         """
-        Plot the ROC curve and calculate AUC.
+        Plot ROC curves for multiple models on the same figure.
         """
-        fpr, tpr, _ = roc_curve(labels, probabilities)
-        auc = roc_auc_score(labels, probabilities)
-        plt.figure()
-        plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.2f})")
+        plt.figure(figsize=(8, 6))
+        for name, probabilities in results.items():
+            fpr, tpr, _ = roc_curve(labels, probabilities)
+            auc = roc_auc_score(labels, probabilities)
+            plt.plot(fpr, tpr, label=f"{name} (AUC = {auc:.2f})")
         plt.plot([0, 1], [0, 1], "k--", label="Random Classifier")
         plt.xlabel("False Positive Rate")
         plt.ylabel("True Positive Rate")
-        plt.title("Receiver Operating Characteristic (ROC) Curve")
+        plt.title("ROC Curve (All Models)")
         plt.legend(loc="lower right")
         plt.grid(alpha=0.3)
         plt.show()
 
-    def plot_goal_rate_by_percentile(self, probabilities, labels):
+    def plot_goal_rate_by_percentile(self, results, labels):
         """
-        Plot the goal rate (goals / total shots) as a function of shot probability percentiles.
+        Plot the goal rate (goals / total shots) as a function of shot probability percentiles for multiple models.
+
+        Parameters:
+        - results (dict): Dictionary of model names and their predicted probabilities.
+        - labels (array): True labels for the shots (1 for goal, 0 for no goal).
         """
-        percentiles = np.percentile(probabilities, range(0, 101, 10))
-        goal_rates = []
-
-        for i in range(len(percentiles) - 1):
-            mask = (probabilities >= percentiles[i]) & (probabilities < percentiles[i + 1])
-            if mask.sum() > 0:
-                goal_rate = labels[mask].mean() * 100  # Convert to percentage
-            else:
-                goal_rate = 0
-            goal_rates.append(goal_rate)
-
         plt.figure(figsize=(8, 6))
-        plt.plot(range(101, 10, -10), goal_rates[::-1], label="Model 1")  # Reverse order for the x-axis
+
+        for model_name, probabilities in results.items():
+            percentiles = np.percentile(probabilities, range(0, 101, 10))
+            goal_rates = []
+
+            for i in range(len(percentiles) - 1):
+                mask = (probabilities >= percentiles[i]) & (probabilities < percentiles[i + 1])
+                if mask.sum() > 0:
+                    goal_rate = labels[mask].mean() * 100  # Convert to percentage
+                else:
+                    goal_rate = 0
+                goal_rates.append(goal_rate)
+
+            # Reverse order for the x-axis
+            plt.plot(range(101, 10, -10), goal_rates[::-1], label=model_name)
+
         plt.gca().invert_xaxis()  # Reverse x-axis direction
-        plt.xlabel("Shot probability model percentile")
-        plt.ylabel("Goals / (Shots + Goals) (%)")  # Add (%) to the label
+        plt.xlabel("Shot Probability Model Percentile")
+        plt.ylabel("Goals / (Shots + Goals) (%)")
         plt.ylim(0, 100)  # Set y-axis scale to 0–100
-        plt.title("Goal Rate")
+        plt.title("Goal Rate (All Models)")
         plt.grid()
         plt.legend()
         plt.show()
 
-    def plot_cumulative_goals_by_percentile(self, probabilities, labels):
+    def plot_cumulative_goals_by_percentile(self, results, labels):
         """
-        Plot the cumulative percentage of goals as a function of shot probability percentiles.
+        Plot the cumulative percentage of goals as a function of shot probability percentiles for multiple models.
+
+        Parameters:
+        - results (dict): Dictionary of model names and their predicted probabilities.
+        - labels (array): True labels for the shots (1 for goal, 0 for no goal).
         """
-        sorted_indices = np.argsort(probabilities)[::-1]
-        sorted_labels = np.array(labels)[sorted_indices]
-
-        cumulative_goals = np.cumsum(sorted_labels) / sorted_labels.sum() * 100  # Convert to percentage
-        percentiles = np.linspace(10, 100, len(cumulative_goals))
-
         plt.figure(figsize=(8, 6))
-        plt.plot(percentiles, cumulative_goals, label="Model 1")
+
+        for model_name, probabilities in results.items():
+            # Sort probabilities and labels
+            sorted_indices = np.argsort(probabilities)[::-1]
+            sorted_labels = np.array(labels)[sorted_indices]
+
+            # Compute cumulative goals
+            cumulative_goals = np.cumsum(sorted_labels) / sorted_labels.sum() * 100  # Convert to percentage
+            percentiles = np.linspace(10, 100, len(cumulative_goals))
+
+            plt.plot(percentiles, cumulative_goals, label=model_name)
+
         plt.gca().invert_xaxis()  # Reverse x-axis direction
-        plt.xlabel("Shot probability model percentile")
-        plt.ylabel("Cumulative % of Goals")  # Keep label as percentage
+        plt.xlabel("Shot Probability Model Percentile")
+        plt.ylabel("Cumulative % of Goals")
         plt.ylim(0, 100)  # Set y-axis scale to 0–100
-        plt.title("Cumulative % of Goals")
+        plt.title("Cumulative % of Goals (All Models)")
         plt.grid()
         plt.legend()
         plt.show()
 
-    def plot_reliability_diagram(self, probabilities, labels):
+    def plot_reliability_diagram(self, results, labels):
         """
-        Plot the reliability diagram (calibration curve) using Scikit-learn's CalibrationDisplay.
+        Plot the reliability diagram (calibration curve) for multiple models in one figure.
+
+        Parameters:
+        - results (dict): Dictionary of model names and their predicted probabilities.
+        - labels (array): True labels for the shots (1 for goal, 0 for no goal).
         """
-        # Use CalibrationDisplay to generate the reliability plot
-        CalibrationDisplay.from_predictions(
-            labels,
-            probabilities,
-            n_bins=10,
-            strategy='uniform',
-            name="Classifier"
-        )
+        plt.figure(figsize=(8, 6))
+
+        for model_name, probabilities in results.items():
+            # Compute calibration curve using calibration_curve
+            fraction_of_positives, mean_predicted_probabilities = calibration_curve(
+                labels, probabilities, n_bins=10, strategy="uniform"
+            )
+            # Add the calibration curve to the plot
+            plt.plot(mean_predicted_probabilities, fraction_of_positives, marker="o", label=model_name)
 
         # Add perfect calibration line
         plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
 
-        # Adjust the legend for clarity
-        plt.legend(loc="best")
-        plt.title("Reliability Diagram")
+        # Add plot details
+        plt.title("Reliability Diagram (All Models)")
         plt.xlabel("Mean Predicted Probability")
         plt.ylabel("Fraction of Positives")
         plt.grid(alpha=0.3)
+        plt.legend(loc="best")
         plt.show()
 
-    def evaluate_probabilities(self):
+    def evaluate_multiple_models(self):
         """
-        Run all evaluations and produce the required plots.
+        Train and evaluate multiple models with different feature combinations and a random baseline.
         """
-        print("Calculating predicted probabilities...")
-        probabilities = self.model.predict_proba(self.X_val)[:, 1]
-        print(self.model.classes_)  # Outputs: [0, 1]
+        models = {
+            "Distance Only": LogisticRegression(),
+            "Angle Only": LogisticRegression(),
+            "Distance and Angle": LogisticRegression(),
+            "Random Baseline": None
+        }
 
-        print("Plotting ROC curve...")
-        self.plot_roc_curve(probabilities, self.y_val)
+        features_dict = {
+            "Distance Only": ["distance_to_net"],
+            "Angle Only": ["angle_to_net"],
+            "Distance and Angle": ["distance_to_net", "angle_to_net"],
+            "Random Baseline": None
+        }
 
-        print("Plotting goal rate by percentile...")
-        self.plot_goal_rate_by_percentile(probabilities, self.y_val)
+        results = {}
 
-        print("Plotting cumulative goals by percentile...")
-        self.plot_cumulative_goals_by_percentile(probabilities, self.y_val)
+        for name, model in models.items():
+            if model:
+                print(f"Training {name} model...")
+                self.prepare_data(features_dict[name])  # Dynamically prepare data
+                model.fit(self.X_train, self.y_train)
+                probabilities = model.predict_proba(self.X_val)[:, 1]
+            else:
+                print(f"Generating random probabilities for {name}...")
+                probabilities = np.random.uniform(0, 1, len(self.y_val))
 
-        print("Plotting reliability diagram...")
-        self.plot_reliability_diagram(probabilities, self.y_val)
+            results[name] = probabilities
+
+        # Plot combined evaluation metrics
+        self.plot_combined_roc_curve(results, self.y_val)
+        self.plot_goal_rate_by_percentile(results, self.y_val)
+        self.plot_cumulative_goals_by_percentile(results, self.y_val)
+        self.plot_reliability_diagram(results, self.y_val)
