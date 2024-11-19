@@ -74,54 +74,6 @@ class NHLShotVisualizer:
         joint_plot.set_axis_labels("Distance to Net", "Angle to Net (degrees)", fontsize=12)
         plt.show()
 
-    # def calculate_goal_rate(self, x_column, num_bins):
-    #     """
-    #     Calculate goal rate as a function of a given column (distance or angle).
-    #
-    #     Parameters:
-    #     - x_column: The column to calculate goal rate against (e.g., 'distance_to_net' or 'angle_to_net').
-    #     - num_bins: Number of bins to group the data.
-    #
-    #     Returns:
-    #     - A DataFrame with binned x_column values and corresponding goal rates.
-    #     """
-    #     # Work with a copy of the DataFrame to avoid SettingWithCopyWarning
-    #     df = self.dataframe.copy()
-    #     df['bin'] = pd.cut(df[x_column], bins=num_bins)
-    #
-    #     # Group by the bins and calculate goals and totals, explicitly setting observed=False
-    #     grouped = df.groupby('bin', observed=False).agg(
-    #         goals=('is_goal', 'sum'),
-    #         total=('is_goal', 'count')
-    #     )
-    #     grouped['goal_rate'] = grouped['goals'] / grouped['total']
-    #
-    #     # Add the bin center for plotting
-    #     grouped['bin_center'] = grouped.index.map(lambda x: x.mid)
-    #     return grouped[['bin_center', 'goal_rate']]
-    #
-    # def plot_goal_rate(self, x_column, num_bins, xlabel, title):
-    #     """
-    #     Plot goal rate as a function of a given column (distance or angle).
-    #
-    #     Parameters:
-    #     - x_column: The column to calculate and plot goal rate against.
-    #     - num_bins: Number of bins for grouping.
-    #     - xlabel: Label for the x-axis.
-    #     - title: Title of the plot.
-    #     """
-    #     # Correct call to calculate_goal_rate
-    #     goal_rate_data = self.calculate_goal_rate(x_column=x_column, num_bins=num_bins)
-    #
-    #     # Plotting the goal rate
-    #     plt.figure(figsize=(10, 6))
-    #     sns.lineplot(x=goal_rate_data['bin_center'], y=goal_rate_data['goal_rate'], marker='o')
-    #     plt.title(title, fontsize=14)
-    #     plt.xlabel(xlabel, fontsize=12)
-    #     plt.ylabel("Goal Rate", fontsize=12)
-    #     plt.grid(True)
-    #     plt.show()
-
     def calculate_goal_rate(self, column, num_bins):
         """
         Calculate goal rate as a function of a specified column (e.g., distance_to_net or angle_to_net).
