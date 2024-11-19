@@ -7,6 +7,9 @@ from imblearn.over_sampling import SMOTE
 from sklearn.metrics import roc_curve, roc_auc_score
 import numpy as np
 
+import os
+import wandb
+
 
 class LogisticModelAnalyzer:
     def __init__(self, dataframe):
@@ -110,11 +113,33 @@ class LogisticModelAnalyzer:
         """
         Plot the confusion matrix of the model's predictions.
         """
-        conf_matrix = confusion_matrix(self.y_val, predictions)
-        disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=['No Goal', 'Goal'])
-        disp.plot(cmap='Blues')
-        plt.title("Confusion Matrix")
-        plt.show()
+        # conf_matrix = confusion_matrix(self.y_val, predictions)
+        # disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=['No Goal', 'Goal'])
+        # disp.plot(cmap='Blues')
+        # plt.title("Confusion Matrix")
+        # plt.show()
+
+        run = wandb.init(
+            # Set the project where this run will be logged
+            project="IFT6758.2024-A09",
+            # Track hyperparameters and run metadata
+            config={
+                "learning_rate": 0.01,
+                "epochs": 10,
+            },
+        )
+
+        # wandb.sklearn.plot_confusion_matrix(y_true, y_pred, labels)
+        class_names = ["no_gaol", "goal"]
+        confusion_matrix = wandb.sklearn.plot_confusion_matrix(
+            self.y_val,
+            predictions,
+            class_names)
+
+        wandb.log({"Q3-confusion_matrix": confusion_matrix})
+
+        # Close current wandb run
+        run.finish()
 
     def run_analysis(self,features=None, apply_smote=False):
         """

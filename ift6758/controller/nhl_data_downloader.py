@@ -8,15 +8,17 @@ import json
 from IPython.display import display
 import ipywidgets as widgets
 
+PROJECT_DIR = os.path.dirname(__file__)
+
 class NHLDataDownloader:
-    DATA_DIR = "../data/play_by_play"
+    DATA_DIR = os.path.join(PROJECT_DIR, "../data/play_by_play")
     BASE_URL = "https://api-web.nhle.com/v1/gamecenter/"
     PLAY_BY_PLAY_SUFFIX_URL = "/play-by-play"
 
     def __init__(self, base_url="https://api-web.nhle.com/v1/gamecenter/", data_dir="../data/play_by_play", suffix_url="/play-by-play"):
         self.base_url = base_url
         # Ensure the play_by_play folder is always under ift6758/data
-        self.data_dir = os.path.join(os.path.dirname(__file__), data_dir)
+        self.data_dir = os.path.join(PROJECT_DIR, data_dir)
         self.suffix_url = suffix_url
         os.makedirs(data_dir, exist_ok=True)
 
@@ -538,5 +540,23 @@ def get_dataframe_from_concatenated_csv_files(season: int) -> pd.DataFrame:
         all_df.append(df)
     combined_df = pd.concat(all_df, ignore_index=True)
 
+    return combined_df
+
+def get_dataframe_from_concatenated_csv_files(start_season: int, end_season: int = None) -> pd.DataFrame:
+    all_df = []
+
+    if end_season is None:
+        end_season = start_season
+
+    for season in range(start_season, end_season + 1):
+        season_games_cleaned_data_path_name = f"{NHLDataDownloader.DATA_DIR}/{season}_CleanCSV/"
+        csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_games_cleaned_data_path_name) if csv_file_name.endswith('.csv')]
+
+        for csv_file_name in csv_files_names:
+            csv_file_path_name = os.path.join(season_games_cleaned_data_path_name, csv_file_name)
+            df = pd.read_csv(csv_file_path_name)
+            all_df.append(df)
+
+    combined_df = pd.concat(all_df, ignore_index=True)
     return combined_df
 
