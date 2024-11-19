@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.calibration import calibration_curve
+from sklearn.calibration import CalibrationDisplay
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
@@ -93,7 +93,7 @@ class LogisticModelAnalyzer:
         plt.title("Confusion Matrix")
         plt.show()
 
-    def run_analysis(self):
+    def run_analysis(self,apply_smote=False):
         """
         Run the full analysis pipeline: filtering, oversampling, training, evaluation, and visualization.
         """
@@ -103,8 +103,9 @@ class LogisticModelAnalyzer:
         print("Preparing data...")
         self.prepare_data()
 
-        print("Applying SMOTE to oversample minority class...")
-        self.apply_smote()
+        if apply_smote:
+            print("Applying SMOTE to oversample minority class...")
+            self.apply_smote()
 
         print("Training model...")
         self.train_model()
@@ -115,10 +116,6 @@ class LogisticModelAnalyzer:
         print("\nPlotting confusion matrix...")
         self.plot_confusion_matrix(predictions)
 
-        print("\nPotential Observations:")
-        print("- After oversampling, the dataset is balanced.")
-        print("- This approach prevents the model from being biased toward the majority class.")
-
     def plot_roc_curve(self, probabilities, labels):
         """
         Plot the ROC curve and calculate AUC.
@@ -128,72 +125,82 @@ class LogisticModelAnalyzer:
         plt.figure()
         plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.2f})")
         plt.plot([0, 1], [0, 1], "k--", label="Random Classifier")
-        plt.title("ROC Curve")
         plt.xlabel("False Positive Rate")
         plt.ylabel("True Positive Rate")
-        plt.legend()
+        plt.title("Receiver Operating Characteristic (ROC) Curve")
+        plt.legend(loc="lower right")
+        plt.grid(alpha=0.3)
         plt.show()
 
     def plot_goal_rate_by_percentile(self, probabilities, labels):
         """
-        Plot the goal rate (# goals / (# shots + # goals)) as a function of the shot probability percentiles.
+        Plot the goal rate (goals / total shots) as a function of shot probability percentiles.
         """
-        percentiles = np.percentile(probabilities, np.arange(0, 101, 10))  # 10th, 20th, ..., 100th percentile
-        rates = []
+        percentiles = np.percentile(probabilities, range(0, 101, 10))
+        goal_rates = []
+
         for i in range(len(percentiles) - 1):
             mask = (probabilities >= percentiles[i]) & (probabilities < percentiles[i + 1])
-            rate = np.mean(labels[mask]) if np.sum(mask) > 0 else 0
-            rates.append(rate)
+            if mask.sum() > 0:
+                goal_rate = labels[mask].mean() * 100  # Convert to percentage
+            else:
+                goal_rate = 0
+            goal_rates.append(goal_rate)
 
-        plt.figure()
-        plt.plot(np.arange(10, 101, 10), rates, label="Model 1")
+        plt.figure(figsize=(8, 6))
+        plt.plot(range(101, 10, -10), goal_rates[::-1], label="Model 1")  # Reverse order for the x-axis
+        plt.gca().invert_xaxis()  # Reverse x-axis direction
+        plt.xlabel("Shot probability model percentile")
+        plt.ylabel("Goals / (Shots + Goals) (%)")  # Add (%) to the label
+        plt.ylim(0, 100)  # Set y-axis scale to 0–100
         plt.title("Goal Rate")
-        plt.xlabel("Shot Probability Model Percentile")
-        plt.ylabel("Goals / (Shots + Goals)")
+        plt.grid()
         plt.legend()
         plt.show()
 
     def plot_cumulative_goals_by_percentile(self, probabilities, labels):
         """
-        Plot the cumulative percentage of goals as a function of the shot probability percentiles.
+        Plot the cumulative percentage of goals as a function of shot probability percentiles.
         """
-        # Ensure labels and probabilities are aligned
-        probabilities = pd.Series(probabilities).reset_index(drop=True)
-        labels = pd.Series(labels).reset_index(drop=True)
+        sorted_indices = np.argsort(probabilities)[::-1]
+        sorted_labels = np.array(labels)[sorted_indices]
 
-        # Debugging step: Verify lengths
-        if len(probabilities) != len(labels):
-            raise ValueError(f"Mismatch in lengths: probabilities ({len(probabilities)}) and labels ({len(labels)})")
+        cumulative_goals = np.cumsum(sorted_labels) / sorted_labels.sum() * 100  # Convert to percentage
+        percentiles = np.linspace(10, 100, len(cumulative_goals))
 
-        # Sort probabilities and labels in descending order of probabilities
-        sorted_indices = np.argsort(probabilities)[::-1]  # Descending order
-        sorted_labels = labels.iloc[sorted_indices]  # Align labels with sorted probabilities
-
-        # Compute cumulative sum of goals
-        cumulative_goals = np.cumsum(sorted_labels) / np.sum(sorted_labels)  # Normalized cumulative sum
-        percentiles = np.arange(1, len(cumulative_goals) + 1) / len(cumulative_goals) * 100
-
-        # Plot the cumulative goals vs percentiles
-        plt.plot(percentiles, cumulative_goals, label="Model")
+        plt.figure(figsize=(8, 6))
+        plt.plot(percentiles, cumulative_goals, label="Model 1")
+        plt.gca().invert_xaxis()  # Reverse x-axis direction
         plt.xlabel("Shot probability model percentile")
-        plt.ylabel("Cumulative % of goals")
-        plt.title("Cumulative Percentage of Goals")
-        plt.legend()
+        plt.ylabel("Cumulative % of Goals")  # Keep label as percentage
+        plt.ylim(0, 100)  # Set y-axis scale to 0–100
+        plt.title("Cumulative % of Goals")
         plt.grid()
+        plt.legend()
         plt.show()
 
     def plot_reliability_diagram(self, probabilities, labels):
         """
-        Plot the reliability diagram (calibration curve).
+        Plot the reliability diagram (calibration curve) using Scikit-learn's CalibrationDisplay.
         """
-        prob_true, prob_pred = calibration_curve(labels, probabilities, n_bins=10)
-        plt.figure()
-        plt.plot(prob_pred, prob_true, label="Model 1")
+        # Use CalibrationDisplay to generate the reliability plot
+        CalibrationDisplay.from_predictions(
+            labels,
+            probabilities,
+            n_bins=10,
+            strategy='uniform',
+            name="Classifier"
+        )
+
+        # Add perfect calibration line
         plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
+
+        # Adjust the legend for clarity
+        plt.legend(loc="best")
         plt.title("Reliability Diagram")
         plt.xlabel("Mean Predicted Probability")
         plt.ylabel("Fraction of Positives")
-        plt.legend()
+        plt.grid(alpha=0.3)
         plt.show()
 
     def evaluate_probabilities(self):
@@ -201,7 +208,8 @@ class LogisticModelAnalyzer:
         Run all evaluations and produce the required plots.
         """
         print("Calculating predicted probabilities...")
-        probabilities = self.model.predict_proba(self.X_val)[:, 1]  # Assuming class 1 corresponds to 'goal'
+        probabilities = self.model.predict_proba(self.X_val)[:, 1]
+        print(self.model.classes_)  # Outputs: [0, 1]
 
         print("Plotting ROC curve...")
         self.plot_roc_curve(probabilities, self.y_val)
