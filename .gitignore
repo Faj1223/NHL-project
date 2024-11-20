@@ -127,6 +127,10 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# Wandb
+ift6758/wandb/
+ift6758/notebooks/wandb/
+
 # mypy
 .mypy_cache/
 .dmypy.json
