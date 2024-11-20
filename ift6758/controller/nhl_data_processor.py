@@ -10,15 +10,15 @@ class NHLDataProcessor():
         self.data_dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
         os.makedirs(os.path.join(self.data_dir_path, "play_by_play", "csv"), exist_ok=True)
 
-    def dictionary_to_data_frame_single_game(self, game_data):
+    def dictionary_to_dataframe_single_game(self, game_data):
         events = game_data.get("plays", [])
         extracted_events = []
 
         # Get home and away team information
         home_team_id = game_data.get("homeTeam", {}).get("id", None)
         away_team_id = game_data.get("awayTeam", {}).get("id", None)
-        home_team_name = game_data.get("homeTeam", {}).get("name", {}).get("default", "Unknown")
-        away_team_name = game_data.get("awayTeam", {}).get("name", {}).get("default", "Unknown")
+        home_team_name = game_data.get("homeTeam", {}).get("name", {}).get("default", None)
+        away_team_name = game_data.get("awayTeam", {}).get("name", {}).get("default", None)
 
         for event in events:
             details = event.get("details", {})
@@ -43,23 +43,23 @@ class NHLDataProcessor():
                 team_type = "away"
                 team_name = away_team_name
             else:
-                team_type = "unknown"
-                team_name = "unknown"
+                team_type = None
+                team_name = None
 
             # Determine if the net is empty for the current team
             empty_net_status = is_net_empty_goal(team_type, parsed_situation)
 
             # Default shot type handling
-            shot_type = details.get("shotType", "Unknown")
+            shot_type = details.get("shotType", None)
 
             x_coord = details.get("xCoord", None)
             y_coord = details.get("yCoord", None)
 
             # Assign shooter_id based on event type
             shooter_id = (
-                details.get("scoringPlayerId", "Unknown")
+                details.get("scoringPlayerId", None)
                 if event_type == "goal"
-                else details.get("shootingPlayerId", "Unknown")
+                else details.get("shootingPlayerId", None)
             )
 
             # Collect event information
@@ -83,12 +83,18 @@ class NHLDataProcessor():
                 "real_strength_home_vs_away": real_strength,
                 "situation_code": situation_code,
                 "shooter_id": shooter_id,
-                "goalie_id": details.get("goalieInNetId", "Unknown"),
+                "goalie_id": details.get("goalieInNetId", None),
             }
             extracted_events.append(event_info)
 
         # Convert extracted events to a DataFrame
         df = pd.DataFrame(extracted_events)
+        return df
+
+    def sort(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df = df.sort_values(by=["game_id", "period", "time_in_period"], ascending=True)
+        df.reset_index(drop=True, inplace=True)
         return df
     
     def add_last_event_type_column(self, df: pd.DataFrame) -> pd.DataFrame:
