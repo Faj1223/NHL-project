@@ -1,4 +1,6 @@
 import numpy as np
+import math
+import pandas as pd
 
 #Helper function to parse the situation code
 def parse_situation_code(situation_code):
@@ -119,37 +121,64 @@ def get_home_team_defending_side(x_coord, event_owner_team_id, home_team_id, zon
 		f"No matching conditions for event_owner_team_id: {event_owner_team_id}, home_team_id: {home_team_id}, zone_code: {zone_code}. Returning None.")
 	return None
 
-#Helper function to calculate distance and angle
-def calculate_distance_and_angle(x_coord, y_coord, team_type, home_team_defending_side):
-	"""
-	Calculate the distance and angle to the net based on the event's coordinates,
-	team type, and the home team's defending side.
+def calculate_duration_mm_ss(time1: str, time2: str) -> int:
+    # Convertir les durées en secondes
+    minutes1, seconds1 = map(int, time1.split(":"))
+    minutes2, seconds2 = map(int, time2.split(":"))
+    
+    total_seconds1 = minutes1 * 60 + seconds1
+    total_seconds2 = minutes2 * 60 + seconds2
+    
+    # Calculer la différence en secondes
+    duration_seconds = total_seconds2 - total_seconds1
+    
+    return duration_seconds
 
-	Parameters:
-	- x_coord: x-coordinate of the event.
-	- y_coord: y-coordinate of the event.
-	- team_type: Indicates whether the event involves the home or away team ('home' or 'away').
-	- home_team_defending_side: The side ("left" or "right") the home team is defending.
+def euclidean_distance(x1: float, y1: float, x2: float, y2: float) -> float:
+    """
+    Calcule la distance euclidienne entre deux points (x1, y1) et (x2, y2).
 
-	Returns:
-	- distance_to_net: Distance from the event location to the net.
-	- angle_to_net: Angle from the event location to the net (in degrees).
-	"""
-	if x_coord is None or y_coord is None or home_team_defending_side not in ["left", "right"]:
-		return np.nan, np.nan  # Return NaN for invalid inputs
+    :param x1: Coordonnée x du premier point
+    :param y1: Coordonnée y du premier point
+    :param x2: Coordonnée x du deuxième point
+    :param y2: Coordonnée y du deuxième point
+    :return: Distance euclidienne entre les deux points
+    """
+    return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-	# Determine net_x based on team type and defending side
-	if team_type == "home":
-		net_x = 89 if home_team_defending_side == "left" else -89
-	elif team_type == "away":
-		net_x = -89 if home_team_defending_side == "left" else 89
+def calculate_shooting_distance(tir: pd.Series) -> float:
+	shooter_coords = (tir['x_coord'], tir['y_coord'])
+
+	if tir['home_team_defending_side'] == 'left':
+		home_goalie_coords = (-100, 0)
+		away_goalie_coords = (100, 0)
 	else:
-		return np.nan, np.nan  # Invalid team type
+		home_goalie_coords = (100, 0)
+		away_goalie_coords = (-100, 0)
 
-	net_y = 0  # Assume the net is centered on the y-axis
+	if tir['team_type'] == 'home':
+		return euclidean_distance(shooter_coords[0], shooter_coords[1], away_goalie_coords[0], away_goalie_coords[1])
+	else:
+		return euclidean_distance(shooter_coords[0], shooter_coords[1], home_goalie_coords[0], home_goalie_coords[1])
 
-	# Calculate distance and angle
-	distance_to_net = ((x_coord - net_x) ** 2 + (y_coord - net_y) ** 2) ** 0.5
-	angle_to_net = np.arctan2(y_coord - net_y, net_x - x_coord) * (180 / np.pi)  # Convert to degrees
+def compute_angle(x_shot: float, y_shot: float, x_net: float, y_net: float) -> float:
+    delta_x = x_shot - x_net
+    delta_y = y_shot - y_net
+    if (delta_y == 0):
+        return 90
+    angle = np.arctan(delta_x / delta_y)
+    if angle < 0:
+	    angle = np.pi + angle
+    return angle * (180 / np.pi)
 
-	return distance_to_net, angle_to_net
+def compute_angle_row(row) -> float:
+    if row['home_team_defending_side'] == 'left':
+        home_goalie_coords = (-100, 0)
+        away_goalie_coords = (100, 0)
+    else:
+        home_goalie_coords = (100, 0)
+        away_goalie_coords = (-100, 0)
+    if row['team_type'] == 'home':
+        return compute_angle(row['x_coord'], row['y_coord'], away_goalie_coords[0], away_goalie_coords[1])
+    else:
+        return compute_angle(row['x_coord'], row['y_coord'], home_goalie_coords[0], home_goalie_coords[1])

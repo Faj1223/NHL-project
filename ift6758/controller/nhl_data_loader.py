@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from typing import List
+import json
 
 class NHLDataLoader():
 	"""
@@ -10,7 +11,7 @@ class NHLDataLoader():
 	def __init__(self):
 		self.data_dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
-	def load_raw_data_single_game(self, game_id: str) -> dict:
+	def load_json_file(self, game_id: str) -> dict:
 		season = str(game_id[:4])
 		json_file_path = os.path.join(self.data_dir_path, "play_by_play", "json", f"{season}", f"{game_id}.json")
 		if not os.path.exists(json_file_path):
@@ -21,7 +22,7 @@ class NHLDataLoader():
 				data = json.load(file)
 			return data
 
-	def load_processed_data_single_game_all_events(self, game_id: str) -> pd.DataFrame:
+	def load_csv_file(self, game_id: str) -> pd.DataFrame:
 		season = str(game_id[:4])
 		csv_file_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}", f"{game_id}.csv")
 		if not os.path.exists(csv_file_path):
@@ -30,7 +31,7 @@ class NHLDataLoader():
 		else:
 			return pd.read_csv(csv_file_path)
 
-	def load_processed_data_single_game_shot_events(self, game_id: str) -> pd.DataFrame:
+	def load_csv_file_only_shot_events(self, game_id: str) -> pd.DataFrame:
 		season = str(game_id[:4])
 		csv_file_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}", f"{game_id}.csv")
 		if not os.path.exists(csv_file_path):
@@ -39,7 +40,7 @@ class NHLDataLoader():
 		else:
 			return pd.read_csv(csv_file_path).query("event_type in ['shot-on-goal','goal']")
 
-	def load_processed_data_seasons_game_all_events(self, seasons: List[int]) -> pd.DataFrame:
+	def load_csv_files(self, seasons: List[int]) -> pd.DataFrame:
 		"""
 		Récupère les données play-by-play pour une ou plusieurs saisons.
 
@@ -64,7 +65,7 @@ class NHLDataLoader():
 		combined_df = pd.concat(all_df, ignore_index=True)
 		return combined_df
 
-	def load_processed_data_seasons_game_shot_events(self, seasons: List[int]) -> pd.DataFrame:
+	def load_csv_files_only_shot_events(self, seasons: List[int]) -> pd.DataFrame:
 		"""
 		Récupère seulement les données play-by-play dont le type d'évènement est 'shot-on-goal' pour une ou plusieurs saisons.
 

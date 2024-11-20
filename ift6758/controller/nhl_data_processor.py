@@ -1,7 +1,8 @@
-from .nhl_data_processor_utils import parse_situation_code, get_strength_status, is_net_empty_goal, get_home_team_defending_side, calculate_distance_and_angle
+from nhl_data_processor_utils import parse_situation_code, get_strength_status, is_net_empty_goal, get_home_team_defending_side, calculate_duration_mm_ss, euclidean_distance, calculate_shooting_distance, compute_angle, compute_angle_row
 from typing import List
 import os
 import json
+import numpy as np
 import pandas as pd
 
 class NHLDataProcessor():
@@ -9,7 +10,7 @@ class NHLDataProcessor():
         self.data_dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
         os.makedirs(os.path.join(self.data_dir_path, "play_by_play", "csv"), exist_ok=True)
 
-    def dict_to_data_frame_single_game(self, game_data):
+    def dictionary_to_data_frame_single_game(self, game_data):
         events = game_data.get("plays", [])
         extracted_events = []
 
@@ -18,8 +19,6 @@ class NHLDataProcessor():
         away_team_id = game_data.get("awayTeam", {}).get("id", None)
         home_team_name = game_data.get("homeTeam", {}).get("name", {}).get("default", "Unknown")
         away_team_name = game_data.get("awayTeam", {}).get("name", {}).get("default", "Unknown")
-
-        previous_defending_side = None
 
         for event in events:
             details = event.get("details", {})
@@ -53,32 +52,8 @@ class NHLDataProcessor():
             # Default shot type handling
             shot_type = details.get("shotType", "Unknown")
 
-            # Determine the home team's defending side for this specific event
             x_coord = details.get("xCoord", None)
             y_coord = details.get("yCoord", None)
-            season = int(str(game_data.get('id'))[:4])
-            if season < 2019:
-                zone_code = details.get("zoneCode", "")
-                home_team_defending_side = get_home_team_defending_side(
-                    x_coord, event_owner_team_id, home_team_id, zone_code, previous_defending_side
-                )
-                if home_team_defending_side is not None:
-                    previous_defending_side = home_team_defending_side
-            else:
-                home_team_defending_side = event.get("homeTeamDefendingSide", None)
-                if home_team_defending_side is not None:
-                    previous_defending_side = home_team_defending_side
-
-            # Calculate distance and angle to net
-            distance_to_net, angle_to_net = None, None
-            if x_coord is not None and y_coord is not None:
-                distance_to_net, angle_to_net = calculate_distance_and_angle(
-                    x_coord, y_coord, team_type, home_team_defending_side
-                )
-            else:
-                print(
-                    f"Game ID {game_data.get('id')}: Missing coordinates for event ID {event.get('eventId')}, skipping distance/angle calculation."
-                )
 
             # Assign shooter_id based on event type
             shooter_id = (
@@ -101,11 +76,8 @@ class NHLDataProcessor():
                 "x_coord": x_coord,
                 "y_coord": y_coord,
                 "event_owner_team_id": details.get("eventOwnerTeamId", None),
-                "home_team_defending_side": home_team_defending_side,
                 "team_name": team_name,
                 "team_type": team_type,
-                "distance_to_net": distance_to_net,
-                "angle_to_net": angle_to_net,
                 "empty_net": empty_net_status,
                 "strength_status": strength_status,
                 "real_strength_home_vs_away": real_strength,
@@ -118,17 +90,164 @@ class NHLDataProcessor():
         # Convert extracted events to a DataFrame
         df = pd.DataFrame(extracted_events)
         return df
+    
+    def add_last_event_type_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['last_event_type'] = 'unknown'
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df['prev_game_id'] = df['game_id'].shift(1)
+        df['prev_period'] = df['period'].shift(1)
+        df['prev_event_type'] = df['event_type'].shift(1)
+        same_game_and_period = (df['game_id'] == df['prev_game_id']) & (df['period'] == df['prev_period'])
+        df.loc[mask_shot_events & same_game_and_period, 'last_event_type'] = df.loc[
+            mask_shot_events & same_game_and_period, 'prev_event_type'
+        ]
+        df.drop(['prev_game_id', 'prev_period', 'prev_event_type'], axis=1, inplace=True)
+        return df
+    
+    def add_last_x_coord_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['last_x_coord'] = 'unknown'
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df['prev_game_id'] = df['game_id'].shift(1)
+        df['prev_period'] = df['period'].shift(1)
+        df['prev_x_coord'] = df['x_coord'].shift(1)
+        same_game_and_period = (df['game_id'] == df['prev_game_id']) & (df['period'] == df['prev_period'])
+        df.loc[mask_shot_events & same_game_and_period, 'last_x_coord'] = df.loc[
+            mask_shot_events & same_game_and_period, 'prev_x_coord'
+        ]
+        df.drop(['prev_game_id', 'prev_period', 'prev_x_coord'], axis=1, inplace=True)
+        return df
+    
+    def add_last_y_coord_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['last_y_coord'] = 'unknown'
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df['prev_game_id'] = df['game_id'].shift(1)
+        df['prev_period'] = df['period'].shift(1)
+        df['prev_y_coord'] = df['y_coord'].shift(1)
+        same_game_and_period = (df['game_id'] == df['prev_game_id']) & (df['period'] == df['prev_period'])
+        df.loc[mask_shot_events & same_game_and_period, 'last_y_coord'] = df.loc[
+            mask_shot_events & same_game_and_period, 'prev_y_coord'
+        ]
+        df.drop(['prev_game_id', 'prev_period', 'prev_y_coord'], axis=1, inplace=True)
+        return df
+    
+    def add_time_since_last_event_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['time_since_last_event'] = np.nan  # Initialiser avec NaN pour une durée
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        
+        # Colonnes temporaires pour décalage
+        df['prev_game_id'] = df['game_id'].shift(1)
+        df['prev_period'] = df['period'].shift(1)
+        df['prev_time_in_period'] = df['time_in_period'].shift(1)
+        
+        # Vérifier si le jeu et la période sont identiques
+        same_game_and_period = (df['game_id'] == df['prev_game_id']) & (df['period'] == df['prev_period'])
+        
+        # Calculer les durées avec `apply`
+        df.loc[mask_shot_events & same_game_and_period, 'time_since_last_event'] = df.loc[mask_shot_events & same_game_and_period].apply(
+            lambda row: calculate_duration_mm_ss(row["prev_time_in_period"], row["time_in_period"]),
+            axis=1
+        )
+        
+        # Supprimer les colonnes temporaires
+        df.drop(['prev_game_id', 'prev_period', 'prev_time_in_period'], axis=1, inplace=True)
+        
+        return df
+    
+    def add_distance_from_last_event_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['distance_from_last_event'] = np.nan
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df['prev_game_id'] = df['game_id'].shift(1)
+        df['prev_period'] = df['period'].shift(1)
+        same_game_and_period = (df['game_id'] == df['prev_game_id']) & (df['period'] == df['prev_period'])
+        df.loc[mask_shot_events & same_game_and_period, 'distance_from_last_event'] = df.loc[mask_shot_events & same_game_and_period].apply(
+            lambda row: euclidean_distance(row['last_x_coord'], row['last_y_coord'], row['x_coord'], row['y_coord']),
+            axis=1
+        )
+        df.drop(['prev_game_id', 'prev_period'], axis=1, inplace=True)
+        return df
+    
+    def add_rebound_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['rebound'] = False
+        df['prev_event_type'] = df['event_type'].shift(1)
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df.loc[mask_shot_events, 'rebound'] = df.loc[mask_shot_events, 'prev_event_type'].isin(['shot-on-goal', 'goal'])
+        df.drop(['prev_event_type'], axis=1, inplace=True)
+        return df
+    
+    def add_home_team_defending_side_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        
+        df['home_team_defending_side'] = None
+        number_of_lines = df.shape[0]
+        games_ids = []
+        home_team_defending_side_first_period = {}
+        home_team_defending_side_second_period = {}
 
-    def json_to_csv_processing(self, seasons: List[int]):
-        for season in seasons:
-            src_season_dir_path = os.path.join(self.data_dir_path, "play_by_play", "json", f"{season}")
-            dest_season_dir_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
-            os.makedirs(dest_season_dir_path, exist_ok=True)
-            json_files_names = [json_file_name for json_file_name in os.listdir(src_season_dir_path) if json_file_name.endswith('.json')]
-            for json_file_name in json_files_names:
-                json_file_path = os.path.join(src_season_dir_path, json_file_name)
-                csv_file_path = os.path.join(dest_season_dir_path, f"{json_file_name.split('.')[0]}.csv")
-                with open(json_file_path, "r") as file:
-                    dict_data = json.load(file)
-                df_data = self.dict_to_data_frame_single_game(dict_data)
-                df_data.to_csv(csv_file_path, index=False)
+        for index in range(number_of_lines):
+            game_id = df.loc[index, 'game_id']
+            if game_id in games_ids:
+                period = df.loc[index, 'period']
+                if period % 2 == 1:
+                    df.loc[index, 'home_team_defending_side'] = home_team_defending_side_first_period[game_id]
+                else:
+                    df.loc[index, 'home_team_defending_side'] = home_team_defending_side_second_period[game_id]
+            else:
+                period = df.loc[index, 'period']
+                filtered_df = df.query(f"game_id == {game_id} and period == {period} and team_type == 'home'")
+                x_coords = filtered_df['x_coord']
+                median = x_coords.median()
+                if median > 0:
+                    df.loc[index, 'home_team_defending_side'] = 'left'
+                    if period % 2 == 1:
+                        home_team_defending_side_first_period[game_id] = 'left'
+                        home_team_defending_side_second_period[game_id] = 'right'
+                    else:
+                        home_team_defending_side_first_period[game_id] = 'right'
+                        home_team_defending_side_second_period[game_id] = 'left'
+                else:
+                    df.loc[index, 'home_team_defending_side'] = 'right'
+                    if period % 2 == 1:
+                        home_team_defending_side_first_period[game_id] = 'right'
+                        home_team_defending_side_second_period[game_id] = 'left'
+                    else:
+                        home_team_defending_side_first_period[game_id] = 'left'
+                        home_team_defending_side_second_period[game_id] = 'right'
+                games_ids.append(game_id)
+                
+        return df
+    
+    def add_shooting_distance_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['shooting_distance'] = np.nan
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df.loc[mask_shot_events, 'shooting_distance'] = df.loc[mask_shot_events].apply(calculate_shooting_distance, axis=1)
+        return df
+    
+    def add_shot_angle_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['shot_angle'] = np.nan
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df.loc[mask_shot_events, 'shot_angle'] = df.loc[mask_shot_events].apply(compute_angle_row, axis=1)
+        return df
+    
+    def add_rebound_angle_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['rebound_angle'] = np.nan
+        df['prev_shot_angle'] = df['shot_angle'].shift(1)
+        mask_rebound_events = df['rebound'] == True
+        df.loc[mask_rebound_events, 'rebound_angle'] = np.abs(df.loc[mask_rebound_events, 'shot_angle'] - df.loc[mask_rebound_events, 'prev_shot_angle'])
+        df.drop(['prev_shot_angle'], axis=1, inplace=True)
+        return df
+    
+    def add_speed_from_last_event_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['speed_from_last_event'] = np.nan
+        mask_shot_events = df['event_type'].isin(['shot-on-goal', 'goal'])
+        df.loc[mask_shot_events, 'speed_from_last_event'] = df.loc[mask_shot_events, 'distance_from_last_event'] / df.loc[mask_shot_events, 'time_since_last_event']
+        return df
