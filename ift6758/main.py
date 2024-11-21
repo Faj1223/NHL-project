@@ -1,21 +1,32 @@
 
 import sys
+
+from ift6758.controller.model_pipeline.logistic_regression_model import LogisticRegressionModel
+from ift6758.controller.model_pipeline.train_validation_sets_generator import TrainValidatorSetGenerator
+from ift6758.controller.nhl_data_loader import NHLDataLoader
+
 sys.path.append('../..')
 import ift6758
-import ift6758.controller.data_formatting_utils as data_formatting_utils
-
-import importlib
-importlib.reload(ift6758.controller.data_formatting_utils)
-import ift6758.controller.data_formatting_utils as data_formatting_utils
-import pandas as pd
 
 from ift6758.controller.logistic_model_analyzer import LogisticModelAnalyzer
 
-from ift6758.controller.nhl_data_downloader import NHLDataDownloader
+import importlib
+importlib.reload(ift6758.controller.logistic_model_analyzer)
+from ift6758.controller.logistic_model_analyzer import LogisticModelAnalyzer
+
+import pandas as pd
 
 import wandb
 import os
 
+#TODO: REMOVE this
+def test_model_pipeline(df):
+    df = df.dropna(subset=['shooting_distance', 'shot_angle', 'is_goal'])
+    df = df[['shooting_distance', 'shot_angle', 'is_goal']]
+    df['is_goal'] = df['is_goal'].astype(int)
+
+    model = LogisticRegressionModel(df, 'is_goal', validation_ratio=0.1, use_smote=True)
+    model.evaluate_model()
 
 def main():
 
@@ -23,20 +34,21 @@ def main():
     # DO NOT SUBMIT TO GIT REPO WITH YOUR SECRET KEY
     # os.environ['WANDB_API_KEY'] = 'your_key_here'
 
+
     my_key = os.environ.get('WANDB_API_KEY')
     wandb.login(key=my_key)
 
-    downloader = NHLDataDownloader()
-    # range(2016, 2020) will download all seasons from 2016 to 2019
-    train_val_df = downloader.load_season_data(season_range=range(2016, 2020))
+    loader = NHLDataLoader()
+    df = loader.load_csv_files([2016, 2017, 2018, 2019, 2020])
 
+    test_model_pipeline(df)
 
     #############################################################################
     # QUESTION 2
     #############################################################################
 
-    analyzer = LogisticModelAnalyzer(train_val_df)
-    analyzer.run_analysis()
+    # analyzer = LogisticModelAnalyzer(train_val_df)
+    # analyzer.run_analysis()
 
     # todo ...
 
@@ -49,17 +61,3 @@ def main():
 
 if __name__=="__main__":
     main()
-
-
-
-""" # Example of unused code: remove later
-    formatter = data_formatting_utils.TableFormatter(2016, 2020)
-    formatter.get_milestone_2_q2_formatting()
-
-    formatter.formatted_df.to_csv("data/concat_CSV/milestone2_q2_concat_train.csv", index=False)
-
-    formatter_2 = data_formatting_utils.TableFormatter(2021, 2021)
-    # formatter_2.get_milestone_2_q2_formatting()
-
-    formatter_2.formatted_df.to_csv("data/concat_CSV/milestone2_q2_concat_test.csv", index=False)
-"""

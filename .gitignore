@@ -131,6 +131,9 @@ venv.bak/
 ift6758/wandb/
 ift6758/notebooks/wandb/
 
+# Plots
+ift6758/data/plots/
+
 # mypy
 .mypy_cache/
 .dmypy.json
