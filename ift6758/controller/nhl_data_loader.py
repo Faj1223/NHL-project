@@ -3,6 +3,14 @@ import pandas as pd
 from typing import List
 import json
 
+def is_a_regular_season_game(game_id: str) -> bool:
+	game_type = game_id[4:6]
+	return game_type == "02" # 02 is the game type for regular season games
+
+def is_a_playoff_game(game_id: str) -> bool:
+	game_type = game_id[4:6]
+	return game_type == "03" # 03 is the game type for playoff games
+
 class NHLDataLoader():
 	"""
 	Classe dédiée à la gestion du chargement des données à partir de fichiers.
@@ -65,6 +73,30 @@ class NHLDataLoader():
 		combined_df = pd.concat(all_df, ignore_index=True)
 		return combined_df
 
+	def load_csv_files_only_regular_season_games(self, seasons: List[int]) -> pd.DataFrame:
+		all_df = []
+		for season in seasons:
+			season_dir_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
+			csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_dir_path) if csv_file_name.endswith('.csv')and is_a_regular_season_game(csv_file_name.split('.')[0])]
+			for csv_file_name in csv_files_names:
+				csv_file_path = os.path.join(season_dir_path, csv_file_name)
+				df = pd.read_csv(csv_file_path)
+				all_df.append(df)
+		combined_df = pd.concat(all_df, ignore_index=True)
+		return combined_df
+	
+	def load_csv_files_only_playoff_games(self, seasons: List[int]) -> pd.DataFrame:
+		all_df = []
+		for season in seasons:
+			season_dir_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
+			csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_dir_path) if csv_file_name.endswith('.csv')and is_a_playoff_game(csv_file_name.split('.')[0])]
+			for csv_file_name in csv_files_names:
+				csv_file_path = os.path.join(season_dir_path, csv_file_name)
+				df = pd.read_csv(csv_file_path)
+				all_df.append(df)
+		combined_df = pd.concat(all_df, ignore_index=True)
+		return combined_df
+
 	def load_csv_files_only_shot_events(self, seasons: List[int]) -> pd.DataFrame:
 		"""
 		Récupère seulement les données play-by-play dont le type d'évènement est 'shot-on-goal' pour une ou plusieurs saisons.
@@ -83,6 +115,30 @@ class NHLDataLoader():
 		for season in seasons:
 			season_dir_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
 			csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_dir_path) if csv_file_name.endswith('.csv')]
+			for csv_file_name in csv_files_names:
+				csv_file_path = os.path.join(season_dir_path, csv_file_name)
+				df = pd.read_csv(csv_file_path).query("event_type in ['shot-on-goal','goal']")
+				all_df.append(df)
+		combined_df = pd.concat(all_df, ignore_index=True)
+		return combined_df
+
+	def load_csv_files_only_regular_season_games_only_shot_events(self, seasons: List[int]) -> pd.DataFrame:
+		all_df = []
+		for season in seasons:
+			season_dir_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
+			csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_dir_path) if csv_file_name.endswith('.csv') and is_a_regular_season_game(csv_file_name.split('.')[0])]
+			for csv_file_name in csv_files_names:
+				csv_file_path = os.path.join(season_dir_path, csv_file_name)
+				df = pd.read_csv(csv_file_path).query("event_type in ['shot-on-goal','goal']")
+				all_df.append(df)
+		combined_df = pd.concat(all_df, ignore_index=True)
+		return combined_df
+	
+	def load_csv_files_only_playoff_games_only_shot_events(self, seasons: List[int]) -> pd.DataFrame:
+		all_df = []
+		for season in seasons:
+			season_dir_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
+			csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_dir_path) if csv_file_name.endswith('.csv') and is_a_playoff_game(csv_file_name.split('.')[0])]
 			for csv_file_name in csv_files_names:
 				csv_file_path = os.path.join(season_dir_path, csv_file_name)
 				df = pd.read_csv(csv_file_path).query("event_type in ['shot-on-goal','goal']")
