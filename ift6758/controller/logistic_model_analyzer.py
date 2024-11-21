@@ -29,7 +29,7 @@ class LogisticModelAnalyzer:
         """
         Filter out rows where shooter_id is 'Unknown'.
         """
-        self.filtered_data = self.dataframe.dropna(subset=['distance_to_net','angle_to_net', 'is_goal'])
+        self.filtered_data = self.dataframe.dropna(subset=['shooting_distance','shot_angle', 'is_goal'])
 
     def validate_features(self, features):
         """
@@ -147,7 +147,7 @@ class LogisticModelAnalyzer:
         Run the full analysis pipeline: filtering, oversampling, training, evaluation, and visualization.
         """
         if features is None:
-            features = ["distance_to_net"]  # Default feature
+            features = ["shooting_distance"]  # Default feature
 
         print("Filtering data...")
         self.filter_data()
@@ -290,9 +290,9 @@ class LogisticModelAnalyzer:
         }
 
         features_dict = {
-            "Distance Only": ["distance_to_net"],
-            "Angle Only": ["angle_to_net"],
-            "Distance and Angle": ["distance_to_net", "angle_to_net"],
+            "Distance Only": ["shooting_distance"],
+            "Angle Only": ["shot_angle"],
+            "Distance and Angle": ["shooting_distance", "shot_angle"],
             "Random Baseline": None
         }
 

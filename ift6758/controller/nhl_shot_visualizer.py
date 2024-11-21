@@ -16,7 +16,7 @@ class NHLShotVisualizer:
         plt.figure(figsize=(10, 6))
         sns.histplot(
             data=self.dataframe,
-            x="distance_to_net",
+            x="shooting_distance",
             hue="is_goal",
             bins=30,
             kde=False,
@@ -38,7 +38,7 @@ class NHLShotVisualizer:
         plt.figure(figsize=(10, 6))
         sns.histplot(
             data=self.dataframe,
-            x="angle_to_net",
+            x="shot_angle",
             hue="is_goal",
             bins=30,
             kde=False,
@@ -64,8 +64,8 @@ class NHLShotVisualizer:
         sns.set(style="whitegrid")
         joint_plot = sns.jointplot(
             data=self.dataframe,
-            x="distance_to_net",
-            y="angle_to_net",
+            x="shooting_distance",
+            y="shot_angle",
             kind="scatter",  # Scatter plot for the center
             marginal_kws=dict(bins=30, fill=True, color="blue")  # Histogram settings for the margins
         )
@@ -129,9 +129,9 @@ class NHLShotVisualizer:
         plt.xlabel(xlabel, fontsize=14)
         plt.ylabel("Goal Rate", fontsize=14)
         # Adjust x-axis range dynamically based on the column
-        if column == "distance_to_net":
+        if column == "shooting_distance":
             plt.xlim(0, 100)  # most shots occur at closer ranges,therefore focus on shorter distances
-        elif column == "angle_to_net":
+        elif column == "shot_angle":
             plt.xlim(-180, 180)  # Full range of angles in degrees
 
         plt.grid(True)
@@ -144,7 +144,7 @@ class NHLShotVisualizer:
         plt.figure(figsize=(10, 6))
         sns.histplot(
             data=self.dataframe,
-            x="distance_to_net",
+            x="shooting_distance",
             hue="empty_net",
             bins=30,
             kde=False,
