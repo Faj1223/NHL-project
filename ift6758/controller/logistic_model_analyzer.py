@@ -298,14 +298,23 @@ class LogisticModelAnalyzer:
 
         results = {}
 
+        from sklearn.metrics import roc_auc_score, log_loss
+
         for name, model in models.items():
             run = wandb.init(project="IFT6758.2024-A09", job_type="model-evaluation", name=f"{name} Model")
             run.tags = [name.replace(" ", "_").lower(), "logistic_regression", "evaluation"]
+
             if model:
                 print(f"Training {name} model...")
                 self.prepare_data(features_dict[name])  # Dynamically prepare data
                 model.fit(self.X_train, self.y_train)
                 probabilities = model.predict_proba(self.X_val)[:, 1]
+
+                # Calculer et enregistrer les métriques
+                auc = roc_auc_score(self.y_val, probabilities)
+                logloss = log_loss(self.y_val, probabilities)
+                print(f"Logging metrics: AUC={auc}, Log Loss={logloss}")
+                run.log({"AUC": auc, "Log Loss": logloss})
 
                 model_filename = f"{name.replace(' ', '_').lower()}_model.joblib"
                 joblib.dump(model, model_filename)
@@ -317,6 +326,12 @@ class LogisticModelAnalyzer:
             else:
                 print(f"Generating random probabilities for {name}...")
                 probabilities = np.random.uniform(0, 1, len(self.y_val))
+
+                # Calculer et enregistrer les métriques pour la baseline
+                auc = roc_auc_score(self.y_val, probabilities)
+                logloss = log_loss(self.y_val, probabilities)
+                print(f"Logging metrics: AUC={auc}, Log Loss={logloss}")
+                run.log({"AUC": auc, "Log Loss": logloss})
 
             results[name] = probabilities
             run.finish()
