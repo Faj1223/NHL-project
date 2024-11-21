@@ -7,9 +7,9 @@ class NHLDataLoader():
 	"""
 	Classe dédiée à la gestion du chargement des données à partir de fichiers.
 	"""
-
 	def __init__(self):
 		self.data_dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+
 
 	def load_json_file(self, game_id: str) -> dict:
 		season = str(game_id[:4])
@@ -65,6 +65,31 @@ class NHLDataLoader():
 		combined_df = pd.concat(all_df, ignore_index=True)
 		return combined_df
 
+	def load_old_csv_files(self, seasons: List[int]) -> pd.DataFrame:
+		"""
+		Récupère les données play-by-play pour une ou plusieurs saisons.
+
+		Parameters
+		----------
+		seasons : List[int]
+			Une liste d'années représentant les saisons (par exemple, [2020, 2021]).
+
+		Returns
+		-------
+		pd.DataFrame
+			Un DataFrame contenant les données pour les saisons 'seasons'.
+		"""
+		all_df = []
+		for season in seasons:
+			season_dir_path = os.path.join(self.data_dir_path, "play_by_play","json", f"{season}_CleanCSV")
+			csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_dir_path) if csv_file_name.endswith('.csv')]
+			for csv_file_name in csv_files_names:
+				csv_file_path = os.path.join(season_dir_path, csv_file_name)
+				df = pd.read_csv(csv_file_path)
+				all_df.append(df)
+		combined_df = pd.concat(all_df, ignore_index=True)
+		return combined_df
+
 	def load_csv_files_only_shot_events(self, seasons: List[int]) -> pd.DataFrame:
 		"""
 		Récupère seulement les données play-by-play dont le type d'évènement est 'shot-on-goal' pour une ou plusieurs saisons.
@@ -103,8 +128,8 @@ class NHLDataLoader():
 		all_data = []
 
 		for season in season_range:
-			folder_name = f"{season}_CleanCSV"
-			folder_path = os.path.join(self.DATA_DIR, folder_name)
+			folder_name = f"{season}"
+			folder_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
 
 			if os.path.exists(folder_path):
 				csv_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".csv")]

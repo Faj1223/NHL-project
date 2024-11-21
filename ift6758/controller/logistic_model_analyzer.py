@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import roc_curve, roc_auc_score
 import numpy as np
+import joblib
 
 import os
 import wandb
@@ -298,16 +299,27 @@ class LogisticModelAnalyzer:
         results = {}
 
         for name, model in models.items():
+            run = wandb.init(project="IFT6758.2024-A09", job_type="model-evaluation", name=f"{name} Model")
+            run.tags = [name.replace(" ", "_").lower(), "logistic_regression", "evaluation"]
             if model:
                 print(f"Training {name} model...")
                 self.prepare_data(features_dict[name])  # Dynamically prepare data
                 model.fit(self.X_train, self.y_train)
                 probabilities = model.predict_proba(self.X_val)[:, 1]
+
+                model_filename = f"{name.replace(' ', '_').lower()}_model.joblib"
+                joblib.dump(model, model_filename)
+
+                # Enregistrer le modèle dans W&B
+                artifact = wandb.Artifact(name=f"{name.replace(' ', '_').lower()}_artifact", type="model")
+                artifact.add_file(model_filename)
+                run.log_artifact(artifact)
             else:
                 print(f"Generating random probabilities for {name}...")
                 probabilities = np.random.uniform(0, 1, len(self.y_val))
 
             results[name] = probabilities
+            run.finish()
 
         # Plot combined evaluation metrics
         self.plot_combined_roc_curve(results, self.y_val)
