@@ -2,6 +2,8 @@
 import sys
 
 from ift6758.controller.model_pipeline.logistic_regression_model import LogisticRegressionModel
+from ift6758.controller.model_pipeline.model_comparator import ModelComparator
+from ift6758.controller.model_pipeline.random_classifier import RandomClassifierModel
 from ift6758.controller.model_pipeline.train_validation_sets_generator import TrainValidatorSetGenerator
 from ift6758.controller.nhl_data_loader import NHLDataLoader
 
@@ -26,7 +28,15 @@ def test_model_pipeline(df):
     df['is_goal'] = df['is_goal'].astype(int)
 
     model = LogisticRegressionModel(df, 'is_goal', validation_ratio=0.1, use_smote=True)
-    model.evaluate_model()
+    model2 = LogisticRegressionModel(df, 'is_goal', validation_ratio=0.1, use_smote=False)
+    model2.set_custom_model_name("No_smote_logreg")
+    model3 = RandomClassifierModel(df, 'is_goal', validation_ratio=0.1, use_smote=True)
+
+    comparator = ModelComparator([model3, model, model2])
+    comparator.evaluate_models()
+    comparator.plot_evaluation_together()
+
+    # model.evaluate_model()
 
 def main():
 
