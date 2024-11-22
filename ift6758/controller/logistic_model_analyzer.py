@@ -1,4 +1,5 @@
 import pandas as pd
+from setuptools.sandbox import save_path
 from sklearn.calibration import CalibrationDisplay, calibration_curve
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
@@ -7,16 +8,30 @@ from imblearn.over_sampling import SMOTE
 from sklearn.metrics import roc_curve, roc_auc_score
 import numpy as np
 import joblib
+import datetime
 
 import os
 import wandb
 
+from ift6758.controller.model_pipeline.base_model import BaseModel
 
 class LogisticModelAnalyzer:
     def __init__(self, dataframe):
         """
         Initialize the class with the given dataframe.
         """
+        self.model_id = ""
+        date_now = datetime.datetime.now()
+        self.model_id += date_now.strftime("%m")
+        self.model_id += '_'
+        self.model_id += date_now.strftime("%y")
+        self.model_id += '_'
+        self.model_id += date_now.strftime("%d")
+        self.model_id += '-'
+        self.model_id += date_now.strftime("%H")
+        self.model_id += date_now.strftime("%H")
+        self.model_id += date_now.strftime("%S")
+
         self.dataframe = dataframe
         self.filtered_data = None
         self.X_train = None
@@ -24,6 +39,15 @@ class LogisticModelAnalyzer:
         self.y_train = None
         self.y_val = None
         self.model = None
+        self.data_dir_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "Q3")
+        self.model_name = f"{self.__class__.__name__}_model_{self.model_id}"
+
+    def __get_plots_path(self, plot_name) -> str:
+        path = os.path.join(self.data_dir_path, "plots", self.model_name)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        return os.path.join(path, plot_name)
 
     def filter_data(self):
         """
@@ -172,18 +196,28 @@ class LogisticModelAnalyzer:
         """
         Plot ROC curves for multiple models on the same figure.
         """
+        save_path = self.__get_plots_path("ROC_Curve.png")
+        fig, ax = plt.subplots()
+
         plt.figure(figsize=(8, 6))
         for name, probabilities in results.items():
             fpr, tpr, _ = roc_curve(labels, probabilities)
             auc = roc_auc_score(labels, probabilities)
-            plt.plot(fpr, tpr, label=f"{name} (AUC = {auc:.2f})")
-        plt.plot([0, 1], [0, 1], "k--", label="Random Classifier")
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("ROC Curve (All Models)")
-        plt.legend(loc="lower right")
-        plt.grid(alpha=0.3)
-        plt.show()
+            ax.plot(fpr, tpr, label=f"{name} (AUC = {auc:.2f})")
+        ax.plot([0, 1], [0, 1], "k--", label="Random Classifier")
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
+        ax.set_title("ROC Curve (All Models)")
+        ax.legend(loc="lower right")
+        ax.grid(alpha=0.3)
+        fig.savefig(save_path)  # save the figure to file # do it before 'show' as the show function clear cache
+        img = plt.imread(save_path)
+        # plt.show() # if not showing, close it
+        plt.close(fig)
+
+        wandb.log({"ROC Curve": [wandb.Image(img, caption="ROC Curve")]})
+        print("--ROC Curve sent to WANDB")
+        #plt.show()
 
     def plot_goal_rate_by_percentile(self, results, labels):
         """
@@ -193,6 +227,9 @@ class LogisticModelAnalyzer:
         - results (dict): Dictionary of model names and their predicted probabilities.
         - labels (array): True labels for the shots (1 for goal, 0 for no goal).
         """
+        save_path = self.__get_plots_path("ShotProb_Model_Percentile.png")
+        fig, ax = plt.subplots()
+
         plt.figure(figsize=(8, 6))
 
         for model_name, probabilities in results.items():
@@ -208,16 +245,23 @@ class LogisticModelAnalyzer:
                 goal_rates.append(goal_rate)
 
             # Reverse order for the x-axis
-            plt.plot(range(101, 10, -10), goal_rates[::-1], label=model_name)
+            ax.plot(range(101, 10, -10), goal_rates[::-1], label=model_name)
 
-        plt.gca().invert_xaxis()  # Reverse x-axis direction
-        plt.xlabel("Shot Probability Model Percentile")
-        plt.ylabel("Goals / (Shots + Goals) (%)")
-        plt.ylim(0, 100)  # Set y-axis scale to 0–100
-        plt.title("Goal Rate (All Models)")
-        plt.grid()
-        plt.legend()
-        plt.show()
+        ax.invert_xaxis()  # Reverse x-axis direction
+        ax.set_xlabel("Shot Probability Model Percentile")
+        ax.set_ylabel("Goals / (Shots + Goals) (%)")
+        ax.set_ylim(0, 100)  # Set y-axis scale to 0–100
+        ax.set_title("Goal Rate (All Models)")
+        ax.grid()
+        ax.legend()
+        fig.savefig(save_path)  # save the figure to file # do it before 'show' as the show function clear cache
+        img = plt.imread(save_path)
+        # plt.show() # if not showing, close it
+        plt.close(fig)
+
+        wandb.log({"goal rate by percentile": [wandb.Image(img, caption="goal rate by percentile")]})
+        print("--goal rate by percentile sent to WANDB")
+        #plt.show()
 
     def plot_cumulative_goals_by_percentile(self, results, labels):
         """
@@ -227,6 +271,8 @@ class LogisticModelAnalyzer:
         - results (dict): Dictionary of model names and their predicted probabilities.
         - labels (array): True labels for the shots (1 for goal, 0 for no goal).
         """
+        save_path = self.__get_plots_path("cumul_goals_by_percentile.png")
+        fig, ax = plt.subplots()
         plt.figure(figsize=(8, 6))
 
         for model_name, probabilities in results.items():
@@ -238,16 +284,23 @@ class LogisticModelAnalyzer:
             cumulative_goals = np.cumsum(sorted_labels) / sorted_labels.sum() * 100  # Convert to percentage
             percentiles = np.linspace(10, 100, len(cumulative_goals))
 
-            plt.plot(percentiles, cumulative_goals, label=model_name)
+            ax.plot(percentiles, cumulative_goals, label=model_name)
 
-        plt.gca().invert_xaxis()  # Reverse x-axis direction
-        plt.xlabel("Shot Probability Model Percentile")
-        plt.ylabel("Cumulative % of Goals")
-        plt.ylim(0, 100)  # Set y-axis scale to 0–100
-        plt.title("Cumulative % of Goals (All Models)")
-        plt.grid()
-        plt.legend()
-        plt.show()
+        ax.invert_xaxis()  # Reverse x-axis direction
+        ax.set_xlabel("Shot Probability Model Percentile")
+        ax.set_ylabel("Cumulative % of Goals")
+        ax.set_ylim(0, 100)  # Set y-axis scale to 0–100
+        ax.set_title("Cumulative % of Goals (All Models)")
+        ax.grid()
+        ax.legend()
+        fig.savefig(save_path)  # save the figure to file # do it before 'show' as the show function clear cache
+        img = plt.imread(save_path)
+        # plt.show() # if not showing, close it
+        plt.close(fig)
+
+        wandb.log({"cumulative goals by percentile": [wandb.Image(img, caption="cumulative goals by percentile")]})
+        print("--cumulative goals by percentile sent to WANDB")
+        #plt.show()
 
     def plot_reliability_diagram(self, results, labels):
         """
@@ -257,6 +310,8 @@ class LogisticModelAnalyzer:
         - results (dict): Dictionary of model names and their predicted probabilities.
         - labels (array): True labels for the shots (1 for goal, 0 for no goal).
         """
+        save_path = self.__get_plots_path("reliability_iagram.png")
+        fig, ax = plt.subplots()
         plt.figure(figsize=(8, 6))
 
         for model_name, probabilities in results.items():
@@ -265,23 +320,32 @@ class LogisticModelAnalyzer:
                 labels, probabilities, n_bins=10, strategy="uniform"
             )
             # Add the calibration curve to the plot
-            plt.plot(mean_predicted_probabilities, fraction_of_positives, marker="o", label=model_name)
+            ax.plot(mean_predicted_probabilities, fraction_of_positives, marker="o", label=model_name)
 
         # Add perfect calibration line
-        plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
+        ax.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
 
         # Add plot details
-        plt.title("Reliability Diagram (All Models)")
-        plt.xlabel("Mean Predicted Probability")
-        plt.ylabel("Fraction of Positives")
-        plt.grid(alpha=0.3)
-        plt.legend(loc="best")
-        plt.show()
+        ax.set_title("Reliability Diagram (All Models)")
+        ax.set_xlabel("Mean Predicted Probability")
+        ax.set_ylabel("Fraction of Positives")
+        ax.grid(alpha=0.3)
+        ax.legend(loc="best")
+        fig.savefig(save_path)  # save the figure to file # do it before 'show' as the show function clear cache
+        img = plt.imread(save_path)
+        # plt.show() # if not showing, close it
+        plt.close(fig)
+
+        wandb.log({"reliability diagram": [wandb.Image(img, caption="reliability diagram")]})
+        print("--reliability diagram sent to WANDB")
+        #plt.show()
 
     def evaluate_multiple_models(self):
         """
         Train and evaluate multiple models with different feature combinations and a random baseline.
         """
+        run_id = f"Evaluation_{self.model_name}"
+        run = wandb.init(project="IFT6758.2024-A09", job_type="model-evaluation",id=run_id)
         models = {
             "Distance Only": LogisticRegression(),
             "Angle Only": LogisticRegression(),
@@ -301,7 +365,7 @@ class LogisticModelAnalyzer:
         from sklearn.metrics import roc_auc_score, log_loss
 
         for name, model in models.items():
-            run = wandb.init(project="IFT6758.2024-A09", job_type="model-evaluation", name=f"{name} Model")
+
             run.tags = [name.replace(" ", "_").lower(), "logistic_regression", "evaluation"]
 
             if model:
@@ -334,10 +398,11 @@ class LogisticModelAnalyzer:
                 run.log({"AUC": auc, "Log Loss": logloss})
 
             results[name] = probabilities
-            run.finish()
+
 
         # Plot combined evaluation metrics
         self.plot_combined_roc_curve(results, self.y_val)
         self.plot_goal_rate_by_percentile(results, self.y_val)
         self.plot_cumulative_goals_by_percentile(results, self.y_val)
         self.plot_reliability_diagram(results, self.y_val)
+        run.finish()

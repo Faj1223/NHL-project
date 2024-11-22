@@ -21,3 +21,5 @@ dependencies:
   - plotly
   - scikit-learn
   - imbalanced-learn
+  - xgboost
+  - shap
