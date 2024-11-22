@@ -51,7 +51,10 @@ def main():
     loader = NHLDataLoader()
     df = loader.load_csv_files([2016, 2017, 2018, 2019, 2020])
 
-    test_model_pipeline(df)
+    # sélectionner les caractéristiques optimales
+    df_optimal = NHLDataLoader.get_optimal_features_dataframe(df, target_column='is_goal', k=5)
+
+    test_model_pipeline(df_optimal)
 
     #############################################################################
     # QUESTION 2
