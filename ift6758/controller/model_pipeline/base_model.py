@@ -134,7 +134,7 @@ class BaseModel:
             print(f"Trying to set hyper param of type {type(self.hyperparameters[hyperparam_name])} with a value of type {type(hyperparam_value)}")
             return
 
-        self.set_hyperparameters[hyperparam_name] = hyperparam_value
+        self.hyperparameters[hyperparam_name] = hyperparam_value
 
     ##################################################################################
     # Training metrics. We want to log those always

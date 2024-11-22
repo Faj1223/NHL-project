@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import pandas as pd
 from typing import List
 import json
@@ -232,6 +234,12 @@ class NHLDataLoader():
 
 		# Sélection des k meilleures caractéristiques
 		selector = SelectKBest(score_func=f_classif, k=k)
+		X = X.select_dtypes(include=[np.number])
+
+		X = X.replace(to_replace='unknown', value=np.nan)
+		X = X.replace([np.inf, -np.inf], np.nan)
+		X = X.fillna(0)
+
 		selector.fit(X, y)  # Pas besoin de transformer ici, car nous utilisons les colonnes
 
 		# Colonnes sélectionnées
