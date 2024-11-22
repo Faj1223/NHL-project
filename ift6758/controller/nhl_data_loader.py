@@ -183,3 +183,28 @@ class NHLDataLoader():
 		else:
 			print("No regular season data found for the specified seasons.")
 			return pd.DataFrame()
+
+	def load_old_csv_files(self, seasons: List[int]) -> pd.DataFrame:
+		"""
+		Récupère les données play-by-play pour une ou plusieurs saisons.
+
+		Parameters
+		----------
+		seasons : List[int]
+			Une liste d'années représentant les saisons (par exemple, [2020, 2021]).
+
+		Returns
+		-------
+		pd.DataFrame
+			Un DataFrame contenant les données pour les saisons 'seasons'.
+		"""
+		all_df = []
+		for season in seasons:
+			season_dir_path = os.path.join(self.data_dir_path, "play_by_play","json", f"{season}_CleanCSV")
+			csv_files_names = [csv_file_name for csv_file_name in os.listdir(season_dir_path) if csv_file_name.endswith('.csv')]
+			for csv_file_name in csv_files_names:
+				csv_file_path = os.path.join(season_dir_path, csv_file_name)
+				df = pd.read_csv(csv_file_path)
+				all_df.append(df)
+		combined_df = pd.concat(all_df, ignore_index=True)
+		return combined_df
