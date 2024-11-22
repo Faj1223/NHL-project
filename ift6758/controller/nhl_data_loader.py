@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from typing import List
 import json
+from sklearn.feature_selection import SelectKBest, f_classif
 
 def is_a_regular_season_game(game_id: str) -> bool:
 	game_type = game_id[4:6]
@@ -208,3 +209,36 @@ class NHLDataLoader():
 				all_df.append(df)
 		combined_df = pd.concat(all_df, ignore_index=True)
 		return combined_df
+
+	@staticmethod
+	def get_optimal_features_dataframe(df, target_column='is_goal', k=5):
+		"""
+        Sélectionne les caractéristiques optimales à l'aide de SelectKBest.
+
+        Parameters:
+        - df: DataFrame brut avec les colonnes pertinentes.
+        - target_column: Nom de la colonne cible (par défaut: 'is_goal').
+        - k: Nombre de caractéristiques à sélectionner (par défaut: 5).
+
+        Returns:
+        - DataFrame réduit avec les caractéristiques optimales et la cible.
+        """
+		# Supprime les lignes avec des valeurs manquantes
+		df = df.dropna()
+
+		# Séparer les caractéristiques et la cible
+		X = df.drop(columns=[target_column])
+		y = df[target_column]
+
+		# Sélection des k meilleures caractéristiques
+		selector = SelectKBest(score_func=f_classif, k=k)
+		selector.fit(X, y)  # Pas besoin de transformer ici, car nous utilisons les colonnes
+
+		# Colonnes sélectionnées
+		selected_features = X.columns[selector.get_support()]
+		print(f"Caractéristiques sélectionnées : {list(selected_features)}")
+
+		# Construire le DataFrame final
+		df_selected = X[selected_features].copy()
+		df_selected[target_column] = y
+		return df_selected
