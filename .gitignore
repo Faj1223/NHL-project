@@ -131,8 +131,10 @@ venv.bak/
 ift6758/wandb/
 ift6758/notebooks/wandb/
 
-# Plots
+# Plots & model
+ift6758/data/models/
 ift6758/data/plots/
+ift6758/data/models_comparisons
 
 # mypy
 .mypy_cache/

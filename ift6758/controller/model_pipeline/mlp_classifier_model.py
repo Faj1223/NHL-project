@@ -47,4 +47,8 @@ class MLPClassifierModel(BaseModel):
     def predict(self, x) -> list[int]:
         return self.model.predict(x)
 
+    # Declare @abstractmethod
+    def predict_proba(self, x) -> list[float]:
+        return self.model.predict_proba(x)
+
 

@@ -14,8 +14,27 @@ import wandb
 
 from ift6758.controller.model_pipeline.train_validation_sets_generator import TrainValidatorSetGenerator
 
-
 class BaseModel:
+
+    @staticmethod
+    def init_plot_cache():
+        """
+        Crete an empty dictionnary to fill with plots axes.
+        Useful to plot multiple line together at the end.
+        Returns:
+            the said dict
+        """
+        dict = {
+            "roc":[],
+            "goal_rate_by_percentile":[],
+            "cumulative_goals_by_percentile":[],
+            "reliability_diagram":[],
+            "loss":[],
+            "validation_error":[],
+            "training_error":[],
+        }
+        return dict
+
     def __init__(self, dataframe: pd.DataFrame, column_y_name: str, validation_ratio: float =0.2, use_smote=False):
         """
         Initialize a base abstract model with it's data to use.
@@ -68,6 +87,8 @@ class BaseModel:
         self.training_error_curve = None
         self.validation_error_curve = None
 
+        self.axes_dict = BaseModel.init_plot_cache()
+
     def set_custom_model_name(self, name):
         self.model_name = f"{name}_{self.model_id}"
 
@@ -99,6 +120,9 @@ class BaseModel:
         pass
     @abstractmethod
     def predict(self, x) -> list[int]:
+        pass
+    @abstractmethod
+    def predict_proba(self, x) -> list[float]:
         pass
 
     def set_hyperparameter(self, hyperparam_name: str, hyperparam_value):
@@ -166,7 +190,8 @@ class BaseModel:
         fpr, tpr, thresholds = sklearn.metrics.roc_curve(y_true=y_truth, y_score=preds_proba_positive_class)
         auc = sklearn.metrics.roc_auc_score(y_true=y_truth, y_score=preds_proba_positive_class)
 
-        ax.plot(fpr, tpr, label=f"{self.__class__.__name__} (AUC = {auc:.2f})")
+        axe_label = f"{self.model_name} (AUC = {auc:.2f})"
+        ax.plot(fpr, tpr, label=axe_label)
 
         ax.plot([0, 1], [0, 1], "k--", label="Random Classifier")
         ax.set_xlabel("False Positive Rate")
@@ -177,6 +202,12 @@ class BaseModel:
 
         fig.savefig(save_path)   # save the figure to file # do it before 'show' as the show function clear cache
         img = plt.imread(save_path)
+
+        # Save axes for combined plot later
+        # (X, Y, label)
+        axe_tuple = (fpr, tpr, axe_label)
+        self.axes_dict['roc'].append(axe_tuple)
+
         # plt.show() # if not showing, close it
         plt.close(fig)
 
@@ -224,6 +255,12 @@ class BaseModel:
 
         fig.savefig(save_path)   # save the figure to file # do it before 'show' as the show function clear cache
         img = plt.imread(save_path)
+
+        # Save axes for combined plot later
+        # (X, Y, label)
+        axe_tuple = (range(101, 10, -10), list(reversed(goal_rates)), self.model_name)
+        self.axes_dict['goal_rate_by_percentile'].append(axe_tuple)
+
         # plt.show() # if not showing, close it
         plt.close(fig)
 
@@ -265,6 +302,12 @@ class BaseModel:
 
         fig.savefig(save_path)  # save the figure to file # do it before 'show' as the show function clear cache
         img = plt.imread(save_path)
+
+        # Save axes for combined plot later
+        # (X, Y, label)
+        axe_tuple = (percentiles, cumulative_goals, self.model_name)
+        self.axes_dict['cumulative_goals_by_percentile'].append(axe_tuple)
+
         # plt.show() # if not showing, close it
         plt.close(fig)
 
@@ -282,7 +325,7 @@ class BaseModel:
             y_truth: 1d array of true class of each sample
         """
         title = f"Reliability Diagram, {self.model_name}"
-        save_path = self.__get_plots_path("reliability_iagram.png")
+        save_path = self.__get_plots_path("reliability_diagram.png")
 
         fig, ax = plt.subplots()
         plt.figure(figsize=(8, 6))
@@ -305,6 +348,12 @@ class BaseModel:
 
         fig.savefig(save_path)  # save the figure to file # do it before 'show' as the show function clear cache
         img = plt.imread(save_path)
+
+        # Save axes for combined plot later
+        # (X, Y, label)
+        axe_tuple = (mean_predicted_probabilities, fraction_of_positives, self.model_name)
+        self.axes_dict['reliability_diagram'].append(axe_tuple)
+
         # plt.show() # if not showing, close it
         plt.close(fig)
 
@@ -325,6 +374,11 @@ class BaseModel:
         for epoch, loss in enumerate(self.loss_curve):
             wandb.log({'epoch': epoch + 1, 'loss': loss})
 
+        # Save axes for combined plot later
+        # (loss_curve, label)
+        axe_tuple = (self.loss_curve, self.model_name)
+        self.axes_dict['loss'].append(axe_tuple)
+
     def __log_training_errors(self):
         if self.training_error_curve is None:
             print(f"Model {self.__class__.__name__} has no training errors. Make sure this is want you want!")
@@ -334,6 +388,11 @@ class BaseModel:
         for epoch, training_error_rate in enumerate(self.training_error_curve):
             wandb.log({'epoch': epoch + 1, 'training_error_rate': training_error_rate})
 
+        # Save axes for combined plot later
+        # (loss_curve, label)
+        axe_tuple = (self.training_error_curve, self.model_name)
+        self.axes_dict['training_error'].append(axe_tuple)
+
     def __log_validation_error_curve(self):
         if self.validation_error_curve is None:
             print(f"Model {self.__class__.__name__} has no validation_error_curve. Make sure this is want you want!")
@@ -342,6 +401,11 @@ class BaseModel:
             # Log the loss curve (training loss at each iteration)
         for epoch, validation_error_rate in enumerate(self.validation_error_curve):
             wandb.log({'epoch': epoch + 1, 'validation_error_rate': validation_error_rate})
+
+        # Save axes for combined plot later
+        # (loss_curve, label)
+        axe_tuple = (self.validation_error_curve, self.model_name)
+        self.axes_dict['validation_error'].append(axe_tuple)
 
     def __log_validation_final_accuracy(self, predictions):
         accuracy = sklearn.metrics.accuracy_score(self.Y_validation, predictions)
@@ -363,8 +427,7 @@ class BaseModel:
 
         # Predict validaltion set
         predictions = self.predict(self.X_validation)
-        predictions = self.model.predict(self.X_validation)
-        preds_probabilities = self.model.predict_proba(self.X_validation)
+        preds_probabilities = self.predict_proba(self.X_validation)
 
         # Log training metrics
         self.__log_training_errors()
@@ -384,3 +447,5 @@ class BaseModel:
 
         # Close current wandb run
         run.finish()
+
+        return self.axes_dict
