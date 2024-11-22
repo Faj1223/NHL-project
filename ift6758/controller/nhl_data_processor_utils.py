@@ -150,11 +150,11 @@ def calculate_shooting_distance(tir: pd.Series) -> float:
 	shooter_coords = (tir['x_coord'], tir['y_coord'])
 
 	if tir['home_team_defending_side'] == 'left':
-		home_goalie_coords = (-100, 0)
-		away_goalie_coords = (100, 0)
+		home_goalie_coords = (-89, 0)
+		away_goalie_coords = (89, 0)
 	else:
-		home_goalie_coords = (100, 0)
-		away_goalie_coords = (-100, 0)
+		home_goalie_coords = (89, 0)
+		away_goalie_coords = (-89, 0)
 
 	if tir['team_type'] == 'home':
 		return euclidean_distance(shooter_coords[0], shooter_coords[1], away_goalie_coords[0], away_goalie_coords[1])
@@ -173,11 +173,11 @@ def compute_angle(x_shot: float, y_shot: float, x_net: float, y_net: float) -> f
 
 def compute_angle_row(row) -> float:
     if row['home_team_defending_side'] == 'left':
-        home_goalie_coords = (-100, 0)
-        away_goalie_coords = (100, 0)
+        home_goalie_coords = (-89, 0)
+        away_goalie_coords = (89, 0)
     else:
-        home_goalie_coords = (100, 0)
-        away_goalie_coords = (-100, 0)
+        home_goalie_coords = (89, 0)
+        away_goalie_coords = (-89, 0)
     if row['team_type'] == 'home':
         return compute_angle(row['x_coord'], row['y_coord'], away_goalie_coords[0], away_goalie_coords[1])
     else:
