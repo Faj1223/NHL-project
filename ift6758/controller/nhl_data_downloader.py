@@ -346,3 +346,4 @@ class NHLDataDownloader():
         for season in range(start_season, end_season+1):
             self.download_regular_season(season)
             self.download_playoffs(season)
+

@@ -15,9 +15,9 @@ class NHLDataLoader():
 	"""
 	Classe dédiée à la gestion du chargement des données à partir de fichiers.
 	"""
-
 	def __init__(self):
 		self.data_dir_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+
 
 	def load_json_file(self, game_id: str) -> dict:
 		season = str(game_id[:4])
@@ -159,8 +159,8 @@ class NHLDataLoader():
 		all_data = []
 
 		for season in season_range:
-			folder_name = f"{season}_CleanCSV"
-			folder_path = os.path.join(self.DATA_DIR, folder_name)
+			folder_name = f"{season}"
+			folder_path = os.path.join(self.data_dir_path, "play_by_play", "csv", f"{season}")
 
 			if os.path.exists(folder_path):
 				csv_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".csv")]
