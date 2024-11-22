@@ -72,8 +72,11 @@ class BaseModel:
         self.model_name = f"{name}_{self.model_id}"
 
     def __get_model_path(self) -> str:
-        path = os.path.join(self.data_dir_path, "models", f"{self.model_name}.pkl")
-        return path
+        path = os.path.join(self.data_dir_path, "models")
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        return os.path.join(path, f"{self.model_name}.pkl")
 
     def __get_plots_path(self, plot_name) -> str:
         path = os.path.join(self.data_dir_path, "plots", self.model_name)
@@ -370,10 +373,10 @@ class BaseModel:
         self.__log_validation_final_accuracy(predictions)
 
         # Plot evaluation metrics
-        self.plot_combined_roc_curve(preds_probabilities[:, 0], self.Y_validation)
-        self.plot_goal_rate_by_percentile(preds_probabilities[:, 0], self.Y_validation)
-        self.plot_cumulative_goals_by_percentile(preds_probabilities[:, 0], self.Y_validation)
-        self.plot_reliability_diagram(preds_probabilities[:, 0], self.Y_validation)
+        self.plot_combined_roc_curve(preds_probabilities[:, 1], self.Y_validation)
+        self.plot_goal_rate_by_percentile(preds_probabilities[:, 1], self.Y_validation)
+        self.plot_cumulative_goals_by_percentile(preds_probabilities[:, 1], self.Y_validation)
+        self.plot_reliability_diagram(preds_probabilities[:, 1], self.Y_validation)
         self.__plot_confusion_matrix(predictions)
 
         # Save model in wandb
