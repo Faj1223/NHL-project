@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Pipenv (project-milestone1)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Pipenv (project-milestone1)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="ift6758-conda-env" project-jdk-type="Python SDK" />
 </project>
