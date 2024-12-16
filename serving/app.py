@@ -48,6 +48,13 @@ def initialize():
     if not hasattr(app, "initialized") or not app.initialized:
         app.logger.info("Application started.")
 
+        # Connecter Wandb
+        try:
+            wandb.login(key=os.environ.get("WANDB_API_KEY"))
+            app.logger.info("Successfully logged in to Wandb.")
+        except Exception as e:
+            app.logger.error(f"Failed to log in to Wandb: {e}")
+
         # Charger un modèle par défaut
         default_model_path = "models/default_model.joblib"
         if Path(default_model_path).exists():
@@ -96,14 +103,18 @@ def download_registry_model():
 
         # Si non, télécharger depuis W&B
         app.logger.info(f"Downloading model {model_name} from W&B...")
-        artifact = wandb.Api().artifact(f"{model_name}:latest", type="model")
-        artifact.download("models/")
-        app.loaded_model = joblib.load(model_path)
-        app.logger.info(f"Model {model_name} successfully downloaded and loaded.")
-        return jsonify({"status": "success", "message": f"Model {model_name} downloaded and loaded."})
+        try:
+            artifact = wandb.Api().artifact(f"{model_name}:latest", type="model")
+            artifact.download("models/")
+            app.loaded_model = joblib.load(model_path)
+            app.logger.info(f"Model {model_name} successfully downloaded and loaded.")
+            return jsonify({"status": "success", "message": f"Model {model_name} downloaded and loaded."})
+        except Exception as download_error:
+            app.logger.error(f"Failed to download/load model: {download_error}")
+            abort(500, description=f"Failed to download/load model: {download_error}")
 
     except Exception as e:
-        app.logger.error(f"Failed to download/load model: {e}")
+        app.logger.error(f"Error in /download_registry_model: {e}")
         abort(500, description=f"An error occurred: {e}")
 
 
