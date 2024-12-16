@@ -16,4 +16,4 @@
 # docker build -f <FILENAME> -t <TAG>:<VERSION> .
 # eg: 
 echo "docker build.."
-docker build -f Dockerfile.serving --build-arg WANDB_API_KEY=$WANDB_API_KEY -t serving:v1.0 .
+docker build -f Dockerfile.serving --build-arg WANDB_API_KEY=$WANDB_API_KEY -t serving:latest .
