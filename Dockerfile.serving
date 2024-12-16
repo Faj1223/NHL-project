@@ -23,6 +23,11 @@ ADD ./serving/models/ ./models/
 # Installer les bibliothèques requises via pip
 RUN pip install -r requirements.txt
 
+# Login to Weights & Biases using the provided API key
+# This will set up W&B authentication inside the container
+ARG WANDB_API_KEY
+RUN wandb login ${WANDB_API_KEY}
+
 # Exposer le port sur lequel Flask va écouter (par défaut 5000)
 EXPOSE 5000
 
