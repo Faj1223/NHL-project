@@ -17,8 +17,8 @@ ADD ./requirements.txt ./
 # Copier tout le code de l'application dans le conteneur
 ADD ./serving/app.py ./
 
-# Copier tous les modèles dans le conteneur
-ADD ./serving/models/ ./models/
+# Copier tous les modèles dans le conteneur # Commenter pour tester le download depuis wandb
+#ADD ./serving/models/ ./models/
 
 # Installer les bibliothèques requises via pip
 RUN pip install -r requirements.txt
