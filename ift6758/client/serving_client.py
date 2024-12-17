@@ -67,7 +67,7 @@ class ServingClient:
             logger.error(f"Error retrieving logs: {e}")
             raise
 
-    def download_registry_model(self, workspace: str, model: str, version: str) -> dict:
+    def download_registry_model(self, workspace: str, model: str, version: str, model_type = "joblib") -> dict:
         """
         Triggers a "model swap" in the service by requesting a model from the registry.
 
@@ -81,7 +81,7 @@ class ServingClient:
         """
         try:
             url = f"{self.base_url}/download_registry_model"
-            payload = {"workspace": workspace, "model": model, "version": version}
+            payload = {"workspace": workspace, "model": model, "model_type": model_type,"version": version}
             response = requests.post(url, json=payload)
 
             if response.status_code != 200:

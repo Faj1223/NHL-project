@@ -15,6 +15,7 @@ waitress
 flask
 wandb
 scikit-learn
+xgboost
 
 ipdb
 imbalanced-learn

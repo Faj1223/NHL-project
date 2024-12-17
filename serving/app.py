@@ -9,6 +9,7 @@ gunicorn can be installed via:
 
 """
 import os
+import pickle
 from pathlib import Path
 import logging
 from flask import Flask, jsonify, request, abort
@@ -90,12 +91,15 @@ def download_registry_model():
     try:
         json_data = request.get_json()
         if not json_data or "model" not in json_data:
-            abort(400, description="Invalid input: 'model' key is required in JSON.")
+            abort(400, description="Invalid input: model key is required in JSON.")
+        if not json_data or "model_type" not in json_data:
+            abort(400, description="Invalid input: model_type key is required in JSON. Either joblib or pkl")
 
         model_name = json_data["model"]
+        model_type = json_data["model_type"]
 
         # Vérifier si le modèle est déjà téléchargé
-        model_path = Path(f"models/{model_name}.joblib")
+        model_path = Path(f"models/{model_name}.{model_type}")
         if model_path.exists():
             app.loaded_model = joblib.load(model_path)
             app.logger.info(f"Model {model_name} loaded from local storage.")
@@ -104,9 +108,29 @@ def download_registry_model():
         # Si non, télécharger depuis W&B
         app.logger.info(f"Downloading model {model_name} from W&B...")
         try:
-            artifact = wandb.Api().artifact(f"{model_name}:latest", type="model")
+            if not json_data or "workspace" not in json_data:
+                abort(400, description="Invalid input: workspace key is required in JSON for wandb download.")
+            if not json_data or "version" not in json_data:
+                abort(400, description="Invalid input: version key is required in JSON for wandb download.")
+
+            model_version = json_data["version"]
+            workspace = json_data["workspace"]
+
+            # Example of a workspace: "toma-allary-universit-de-montr-al/IFT6758.2024-A09" (the form has USER/PROJECT)
+            api = wandb.Api()
+            artifact_concat = f"{workspace}/{model_name}:{model_version}"
+            artifact = api.artifact(artifact_concat, type="model")
             artifact.download("models/")
-            app.loaded_model = joblib.load(model_path)
+            app.logger.info(f"WANDB download request for model  {artifact_concat}.")
+
+            if model_type == "joblib":
+                app.loaded_model = joblib.load(model_path)
+            elif model_type == "pkl":
+                with open(model_path, "rb") as f:
+                    app.loaded_model = pickle.load(f)
+            else:
+                abort(400, description="Invalid input: 'model_type' key must be joblib or pkl.")
+
             app.logger.info(f"Model {model_name} successfully downloaded and loaded.")
             return jsonify({"status": "success", "message": f"Model {model_name} downloaded and loaded."})
         except Exception as download_error:
