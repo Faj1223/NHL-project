@@ -15,3 +15,8 @@ waitress
 flask
 wandb
 scikit-learn
+
+ipdb
+imbalanced-learn
+joblib
+streamlit
