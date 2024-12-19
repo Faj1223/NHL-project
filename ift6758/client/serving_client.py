@@ -1,4 +1,4 @@
-import json
+import numpy as np
 import requests
 import pandas as pd
 import logging
@@ -29,7 +29,15 @@ class ServingClient:
         """
         try:
             url = f"{self.base_url}/predict"
-            payload = X.to_dict(orient="list")
+            # Clean the DataFrame to replace NaN/Inf values
+            X_cleaned = X.replace([np.inf, -np.inf], 0).fillna(0)
+
+            # Log if there were any NaN/inf values in the input
+            if X.isnull().values.any() or np.isinf(X.values).any():
+                logger.warning("Input DataFrame contained NaN or inf values. Replaced them with 0.")
+
+            # Convert DataFrame to JSON payload
+            payload = X_cleaned.to_dict(orient="records")
             response = requests.post(url, json=payload)
 
             if response.status_code != 200:
