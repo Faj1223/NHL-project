@@ -19,8 +19,8 @@ class NHLDataProcessor():
         # Get home and away team information
         home_team_id = game_data.get("homeTeam", {}).get("id", None)
         away_team_id = game_data.get("awayTeam", {}).get("id", None)
-        home_team_name = game_data.get("homeTeam", {}).get("name", {}).get("default", None)
-        away_team_name = game_data.get("awayTeam", {}).get("name", {}).get("default", None)
+        home_team_name = game_data.get("homeTeam", {}).get("commonName", {}).get("default", None)
+        away_team_name = game_data.get("awayTeam", {}).get("commonName", {}).get("default", None)
         previous_defending_side = None
 
         for event in events:
@@ -88,6 +88,9 @@ class NHLDataProcessor():
                 "game_id": game_data.get("id", None),
                 "game_date": game_data.get("gameDate", None),
                 "home_team_id": home_team_id,
+                "away_team_id": away_team_id,
+                "home_team_name": home_team_name,
+                "away_team_name": away_team_name,
                 "period": event.get("periodDescriptor", {}).get("number", None),
                 "time_in_period": event.get("timeInPeriod", None),
                 "event_id": event.get("eventId", None),
@@ -97,7 +100,6 @@ class NHLDataProcessor():
                 "x_coord": x_coord,
                 "y_coord": y_coord,
                 "event_owner_team_id": details.get("eventOwnerTeamId", None),
-                "team_name": team_name,
                 "team_type": team_type,
                 "empty_net": empty_net_status,
                 "strength_status": strength_status,
