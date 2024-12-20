@@ -1,7 +1,7 @@
 import numpy as np
 import requests
 import pandas as pd
-from ift6758.controller.nhl_data_processor import NHLDataProcessor
+from nhl_data_processor import NHLDataProcessor
 
 import time
 
