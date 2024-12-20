@@ -25,3 +25,6 @@ dependencies:
   - shap
   - flask
   - waitress
+  - setuptools
+  - joblib
+  - streamlit

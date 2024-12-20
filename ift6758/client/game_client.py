@@ -1,7 +1,7 @@
 import numpy as np
 import requests
 import pandas as pd
-from ift6758.controller.nhl_data_processor import NHLDataProcessor
+from nhl_data_processor import NHLDataProcessor
 
 import time
 
@@ -15,6 +15,14 @@ class GameClient:
         self.handled_events = self._load_event_tracker()
         self.home_team_name = "Unknown Home Team"
         self.away_team_name = "Unknown Away Team"
+
+        self.error_logs = [] #Logs for errors
+
+    def clear_logs(self):
+        self.error_logs = []
+
+    def get_logs(self):
+        return self.error_logs
 
     def _load_event_tracker(self) -> set:
         """Load already processed events from the tracker file."""
@@ -42,13 +50,14 @@ class GameClient:
             return game_data
         except Exception as e:
             print(f"Failed to fetch live game data: {e}")
+            self.error_logs.append(f"Failed to fetch live game data: {e}")
             return {}
 
     def filter_new_events(self, game_data: dict) -> pd.DataFrame:
         """Filter new events that haven't been processed yet."""
-        df = self.processor.dictionary_to_dataframe_single_game(game_data)
-        new_events_df = df[~df['event_id'].isin(self.handled_events)]
-        return new_events_df
+        untouched_df = self.processor.dictionary_to_dataframe_single_game(game_data)
+        new_events_df = untouched_df[~untouched_df['event_id'].isin(self.handled_events)]
+        return new_events_df, untouched_df
 
     def send_for_prediction(self, events_df: pd.DataFrame) -> pd.DataFrame:
         """Send new events to the prediction server and retrieve predictions."""
@@ -60,28 +69,57 @@ class GameClient:
             predictions = response.json().get("predictions", [])
             events_df["predictions"] = predictions
             return events_df
-        except Exception as e:
-            print(f"Failed to send events for prediction: {e}")
-            return pd.DataFrame()
+        except Exception as excp1:
+            # try with only distance
+            try:
+                # Only send relevant features for prediction
+                payload = events_df[['shooting_distance',]].to_dict(orient='records')
+                response = requests.post(self.prediction_url, json=payload)
+                response.raise_for_status()
+                predictions = response.json().get("predictions", [])
+                events_df["predictions"] = predictions
+                return events_df
+            except Exception as excp2:
+                # try with only angle
+                try:
+                    # Only send relevant features for prediction
+                    payload = events_df[['shot_angle',]].to_dict(orient='records')
+                    response = requests.post(self.prediction_url, json=payload)
+                    response.raise_for_status()
+                    predictions = response.json().get("predictions", [])
+                    events_df["predictions"] = predictions
+                    return events_df
+                except Exception as excpFinal:
+                    print(f"Failed to send events for prediction: {excpFinal}")
+                    self.error_logs.append(f"Failed to send events for prediction: {excpFinal}")
+                    return pd.DataFrame()
 
     def process_game(self) -> pd.DataFrame:
         """Fetch, process, and predict data for the game."""
         game_data = self.fetch_live_game_data()
         if not game_data:
             print("No game data available.")
+            self.error_logs.append(f"No game data available.")
             return pd.DataFrame()
 
-        new_events_df = self.filter_new_events(game_data)
+        new_events_df, untouched_df = self.filter_new_events(game_data)
 
         # Clean the DataFrame to remove invalid values
         new_events_df = new_events_df.replace([float("inf"), -float("inf")], 0).fillna(0)
+        untouched_df = untouched_df.replace([float("inf"), -float("inf")], 0).fillna(0)
+
+        # Keep track of seen event
         if not new_events_df.empty:
             new_event_ids = new_events_df['event_id'].tolist()
             self.handled_events.update(new_event_ids)
             self._update_event_tracker(list(self.handled_events))
-            return self.send_for_prediction(new_events_df)
+
+        # Predict
+        if not untouched_df.empty:
+            return self.send_for_prediction(untouched_df)
         else:
             print("No new events to process.")
+            self.error_logs.append(f"No new events to process.")
             return pd.DataFrame()
 
     def calculate_team_xg(self, processed_df: pd.DataFrame) -> dict:

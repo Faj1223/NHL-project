@@ -1,0 +1,27 @@
+# Utilise une image Python 3.7 de base
+FROM python:3.7
+
+# Définir le répertoire de travail dans le conteneur
+WORKDIR /code
+
+# Créer un environnement virtuel
+RUN python -m venv /opt/venv
+
+# Activer l'environnement virtuel en ajustant le PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Ajouter les fichiers nécessaires au répertoire de travail
+# Copier le fichier requirements.txt pour installer les dépendances
+ADD ./requirements.txt ./
+
+# Copier tout le code de l'application dans le conteneur
+ADD ./ift6758/client ./
+
+# Installer les bibliothèques requises via pip
+RUN pip install -r requirements.txt
+
+# Exposer le port sur lequel Streamlit va écouter
+EXPOSE 8080
+
+# Définir la commande par défaut pour lancer l'application
+CMD ["streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8080"]
