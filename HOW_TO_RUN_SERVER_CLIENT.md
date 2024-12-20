@@ -13,6 +13,7 @@
 1 - Open ift6758/client/app.py and change all 5000 with another port of your choice. A simple ctl+f should give you the two instances to change
 2 - Change the *serving* service port of "docker-compose.yml" to be XXXX:XXXX instead of 5000:5000
 3 - Change "Dockerfile.serving" last two commands to use XXXX instead of 5000. (The commands to change are *EXPOSE* and *CMD[waitress-serve ..*)
+4 - Change ift6758/client/serving_client.py __init__ function to use XXXX as default port in the parameters
 
 (note: keep the dockerfiles IPs to 0.0.0.0, otherwise you be able to access outside docker)
 

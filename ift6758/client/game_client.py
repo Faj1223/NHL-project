@@ -55,9 +55,9 @@ class GameClient:
 
     def filter_new_events(self, game_data: dict) -> pd.DataFrame:
         """Filter new events that haven't been processed yet."""
-        df = self.processor.dictionary_to_dataframe_single_game(game_data)
-        new_events_df = df[~df['event_id'].isin(self.handled_events)]
-        return new_events_df
+        untouched_df = self.processor.dictionary_to_dataframe_single_game(game_data)
+        new_events_df = untouched_df[~untouched_df['event_id'].isin(self.handled_events)]
+        return new_events_df, untouched_df
 
     def send_for_prediction(self, events_df: pd.DataFrame) -> pd.DataFrame:
         """Send new events to the prediction server and retrieve predictions."""
@@ -102,15 +102,21 @@ class GameClient:
             self.error_logs.append(f"No game data available.")
             return pd.DataFrame()
 
-        new_events_df = self.filter_new_events(game_data)
+        new_events_df, untouched_df = self.filter_new_events(game_data)
 
         # Clean the DataFrame to remove invalid values
         new_events_df = new_events_df.replace([float("inf"), -float("inf")], 0).fillna(0)
+        untouched_df = untouched_df.replace([float("inf"), -float("inf")], 0).fillna(0)
+
+        # Keep track of seen event
         if not new_events_df.empty:
             new_event_ids = new_events_df['event_id'].tolist()
             self.handled_events.update(new_event_ids)
             self._update_event_tracker(list(self.handled_events))
-            return self.send_for_prediction(new_events_df)
+
+        # Predict
+        if not untouched_df.empty:
+            return self.send_for_prediction(untouched_df)
         else:
             print("No new events to process.")
             self.error_logs.append(f"No new events to process.")
