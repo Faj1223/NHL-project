@@ -16,13 +16,16 @@ version = st.sidebar.text_input("Version", "latest")
 
 # Initialize serving_client in session state
 if "serving_client" not in st.session_state:
-    st.session_state.serving_client = ServingClient(ip="0.0.0.0", port=5000)
+    st.session_state.serving_client = ServingClient(ip="127.0.0.1", port=5000)
 
 # Button to load model
 if st.sidebar.button("Get model"):
     try:
         # Download the model from the registry
         result = st.session_state.serving_client.download_registry_model(workspace, model, version)
+        # result = st.session_state.serving_client.download_registry_model(workspace="toma-allary-universit-de-montr-al/IFT6758.2024-A09",
+        #                                           model="distance_and_angle_model", model_type="joblib", version="v2")
+
         if result.get("status") == "success":
             st.sidebar.success(f"Model '{model}' (Version {version}) loaded successfully!")
         else:
@@ -42,7 +45,7 @@ game_id = st.text_input("Enter Game ID", "2021020329")
 
 if st.button("Ping game"):
     # Initialize GameClient instance
-    client = GameClient(game_id=game_id, prediction_url="http://0.0.0.0:5000/predict")
+    client = GameClient(game_id=game_id, prediction_url="http://serving:5000/predict")
     processed_events = client.process_game()
 
     if not processed_events.empty:
@@ -89,4 +92,6 @@ if st.button("Ping game"):
         st.subheader("Data used for predictions (and predictions)")
         st.dataframe(processed_events)
     else:
-        st.error("No new events to process or data returned from the prediction service.")
+        st.error("No new events to process or data returned from the prediction service. See logs:")
+        for lg in client.get_logs():
+            st.error(lg)

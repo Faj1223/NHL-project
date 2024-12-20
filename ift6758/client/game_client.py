@@ -16,6 +16,14 @@ class GameClient:
         self.home_team_name = "Unknown Home Team"
         self.away_team_name = "Unknown Away Team"
 
+        self.error_logs = [] #Logs for errors
+
+    def clear_logs(self):
+        self.error_logs = []
+
+    def get_logs(self):
+        return self.error_logs
+
     def _load_event_tracker(self) -> set:
         """Load already processed events from the tracker file."""
         try:
@@ -42,6 +50,7 @@ class GameClient:
             return game_data
         except Exception as e:
             print(f"Failed to fetch live game data: {e}")
+            self.error_logs.append(f"Failed to fetch live game data: {e}")
             return {}
 
     def filter_new_events(self, game_data: dict) -> pd.DataFrame:
@@ -62,6 +71,7 @@ class GameClient:
             return events_df
         except Exception as e:
             print(f"Failed to send events for prediction: {e}")
+            self.error_logs.append(f"Failed to send events for prediction: {e}")
             return pd.DataFrame()
 
     def process_game(self) -> pd.DataFrame:
@@ -69,6 +79,7 @@ class GameClient:
         game_data = self.fetch_live_game_data()
         if not game_data:
             print("No game data available.")
+            self.error_logs.append(f"No game data available.")
             return pd.DataFrame()
 
         new_events_df = self.filter_new_events(game_data)
@@ -82,6 +93,7 @@ class GameClient:
             return self.send_for_prediction(new_events_df)
         else:
             print("No new events to process.")
+            self.error_logs.append(f"No new events to process.")
             return pd.DataFrame()
 
     def calculate_team_xg(self, processed_df: pd.DataFrame) -> dict:

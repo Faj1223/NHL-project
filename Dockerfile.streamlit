@@ -20,8 +20,7 @@ ADD ./ift6758/client ./
 # Installer les bibliothèques requises via pip
 RUN pip install -r requirements.txt
 
-# Exposer le port sur lequel Streamlit va écouter (par défaut 5000)
-RUN echo "running app.py in 8080"
+# Exposer le port sur lequel Streamlit va écouter
 EXPOSE 8080
 
 # Définir la commande par défaut pour lancer l'application

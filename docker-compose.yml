@@ -2,17 +2,17 @@
 # version: '3'
 
 services:
-#  serving:
-#    build:
-#      context: ./
-#      dockerfile: ./Dockerfile.serving
-#      args:
-#        WANDB_API_KEY: ${WANDB_API_KEY}  # Pass the local environment variable to the build
-#    image: ift6758/serving:latest
-#    ports:
-#      - 5000:5000
-#    environment:
-#          WANDB_API_KEY: ${WANDB_API_KEY}
+  serving:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.serving
+      args:
+        WANDB_API_KEY: ${WANDB_API_KEY}  # Pass the local environment variable to the build
+    image: ift6758/serving:latest
+    ports:
+      - 5000:5000
+    environment:
+          WANDB_API_KEY: ${WANDB_API_KEY}
 
 ###### Uncomment below when you're ready to add the final notebook container to your docker compose
 #  streamlit:
