@@ -1,4 +1,6 @@
-from nhl_data_processor_utils import parse_situation_code, get_strength_status, is_net_empty_goal, get_home_team_defending_side, calculate_duration_mm_ss, euclidean_distance, calculate_shooting_distance, compute_angle, compute_angle_row
+from .nhl_data_processor_utils import parse_situation_code, get_strength_status, is_net_empty_goal, \
+    get_home_team_defending_side, calculate_duration_mm_ss, euclidean_distance, calculate_shooting_distance, \
+    compute_angle, compute_angle_row, calculate_distance_and_angle
 from typing import List
 import os
 import json
@@ -17,8 +19,9 @@ class NHLDataProcessor():
         # Get home and away team information
         home_team_id = game_data.get("homeTeam", {}).get("id", None)
         away_team_id = game_data.get("awayTeam", {}).get("id", None)
-        home_team_name = game_data.get("homeTeam", {}).get("name", {}).get("default", None)
-        away_team_name = game_data.get("awayTeam", {}).get("name", {}).get("default", None)
+        home_team_name = game_data.get("homeTeam", {}).get("commonName", {}).get("default", None)
+        away_team_name = game_data.get("awayTeam", {}).get("commonName", {}).get("default", None)
+        previous_defending_side = None
 
         for event in events:
             details = event.get("details", {})
@@ -55,6 +58,24 @@ class NHLDataProcessor():
             x_coord = details.get("xCoord", None)
             y_coord = details.get("yCoord", None)
 
+            season = str(game_data.get("season", None))[0:4]
+            if int(season) < 2019:
+                zone_code = details.get("zoneCode", "")
+                home_team_defending_side = get_home_team_defending_side(x_coord, event_owner_team_id, home_team_id,
+                                                                             zone_code, previous_defending_side)
+                if home_team_defending_side is not None:
+                    previous_defending_side = home_team_defending_side
+            else:
+                home_team_defending_side = event.get("homeTeamDefendingSide", None)
+                if home_team_defending_side is not None:
+                    previous_defending_side = home_team_defending_side
+
+            distance_to_net, angle_to_net = None, None
+            if x_coord is not None and y_coord is not None:
+                distance_to_net, angle_to_net = calculate_distance_and_angle(x_coord, y_coord, team_type,
+                                                                                  home_team_defending_side)
+
+
             # Assign shooter_id based on event type
             shooter_id = (
                 details.get("scoringPlayerId", None)
@@ -67,6 +88,9 @@ class NHLDataProcessor():
                 "game_id": game_data.get("id", None),
                 "game_date": game_data.get("gameDate", None),
                 "home_team_id": home_team_id,
+                "away_team_id": away_team_id,
+                "home_team_name": home_team_name,
+                "away_team_name": away_team_name,
                 "period": event.get("periodDescriptor", {}).get("number", None),
                 "time_in_period": event.get("timeInPeriod", None),
                 "event_id": event.get("eventId", None),
@@ -76,7 +100,6 @@ class NHLDataProcessor():
                 "x_coord": x_coord,
                 "y_coord": y_coord,
                 "event_owner_team_id": details.get("eventOwnerTeamId", None),
-                "team_name": team_name,
                 "team_type": team_type,
                 "empty_net": empty_net_status,
                 "strength_status": strength_status,
@@ -84,6 +107,10 @@ class NHLDataProcessor():
                 "situation_code": situation_code,
                 "shooter_id": shooter_id,
                 "goalie_id": details.get("goalieInNetId", None),
+                "home_team_defending_side": home_team_defending_side,
+                "shooting_distance": distance_to_net,
+                "shot_angle": angle_to_net,
+                "time_remaining_in_period": event.get("timeRemaining", None),
             }
             extracted_events.append(event_info)
 

@@ -82,8 +82,6 @@ def get_home_team_defending_side(x_coord, event_owner_team_id, home_team_id, zon
 	- "left" or "right" indicating the defensive side of the home team for the event.
 	"""
 	if x_coord is None:
-		print(
-			f"x_coord is None for the event with event_owner_team_id: {event_owner_team_id} and zone_code: {zone_code}. Using previous defending side.")
 		return previous_defending_side
 	# Case 1: Event involves the home team
 	if event_owner_team_id == home_team_id:
@@ -182,3 +180,37 @@ def compute_angle_row(row) -> float:
         return compute_angle(row['x_coord'], row['y_coord'], away_goalie_coords[0], away_goalie_coords[1])
     else:
         return compute_angle(row['x_coord'], row['y_coord'], home_goalie_coords[0], home_goalie_coords[1])
+
+def calculate_distance_and_angle(x_coord, y_coord, team_type, home_team_defending_side):
+	"""
+	Calculate the distance and angle to the net based on the event's coordinates,
+	team type, and the home team's defending side.
+
+	Parameters:
+	- x_coord: x-coordinate of the event.
+	- y_coord: y-coordinate of the event.
+	- team_type: Indicates whether the event involves the home or away team ('home' or 'away').
+	- home_team_defending_side: The side ("left" or "right") the home team is defending.
+
+	Returns:
+	- distance_to_net: Distance from the event location to the net.
+	- angle_to_net: Angle from the event location to the net (in degrees).
+	"""
+	if x_coord is None or y_coord is None or home_team_defending_side not in ["left", "right"]:
+		return np.nan, np.nan  # Return NaN for invalid inputs
+
+	# Determine net_x based on team type and defending side
+	if team_type == "home":
+		net_x = 89 if home_team_defending_side == "left" else -89
+	elif team_type == "away":
+		net_x = -89 if home_team_defending_side == "left" else 89
+	else:
+		return np.nan, np.nan  # Invalid team type
+
+	net_y = 0  # Assume the net is centered on the y-axis
+
+	# Calculate distance and angle
+	distance_to_net = ((x_coord - net_x) ** 2 + (y_coord - net_y) ** 2) ** 0.5
+	angle_to_net = np.arctan2(y_coord - net_y, net_x - x_coord) * (180 / np.pi)  # Convert to degrees
+
+	return distance_to_net, angle_to_net
