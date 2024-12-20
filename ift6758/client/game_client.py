@@ -69,10 +69,30 @@ class GameClient:
             predictions = response.json().get("predictions", [])
             events_df["predictions"] = predictions
             return events_df
-        except Exception as e:
-            print(f"Failed to send events for prediction: {e}")
-            self.error_logs.append(f"Failed to send events for prediction: {e}")
-            return pd.DataFrame()
+        except Exception as excp1:
+            # try with only distance
+            try:
+                # Only send relevant features for prediction
+                payload = events_df[['shooting_distance',]].to_dict(orient='records')
+                response = requests.post(self.prediction_url, json=payload)
+                response.raise_for_status()
+                predictions = response.json().get("predictions", [])
+                events_df["predictions"] = predictions
+                return events_df
+            except Exception as excp2:
+                # try with only angle
+                try:
+                    # Only send relevant features for prediction
+                    payload = events_df[['shot_angle',]].to_dict(orient='records')
+                    response = requests.post(self.prediction_url, json=payload)
+                    response.raise_for_status()
+                    predictions = response.json().get("predictions", [])
+                    events_df["predictions"] = predictions
+                    return events_df
+                except Exception as excpFinal:
+                    print(f"Failed to send events for prediction: {excpFinal}")
+                    self.error_logs.append(f"Failed to send events for prediction: {excpFinal}")
+                    return pd.DataFrame()
 
     def process_game(self) -> pd.DataFrame:
         """Fetch, process, and predict data for the game."""
